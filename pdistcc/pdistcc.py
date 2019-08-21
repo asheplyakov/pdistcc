@@ -85,6 +85,9 @@ def dcc_compile(doti, args, host='127.0.0.1', port=3632, ofile='a.out'):
         if flen > 0:
             sys.stdout.write(val.decode('utf-8'))
 
+        if status != 0:
+            sys.exit(status)
+
         field, flen, _ = read_field(s, False)
         if field != b'DOTO':
             raise RuntimeError('expected DOTO, got "%s"' % val.decode('utf-8'))
