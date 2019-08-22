@@ -13,7 +13,8 @@ def main():
     parser.add_argument('--port', type=int,
                         help='port distccd listens at', default=DISTCCD_PORT)
     parser.add_argument("compiler", nargs='*', help="compiler and arguments")
-    args = parser.parse_args()
+    args, unknown = parser.parse_known_args()
+    args.compiler.extend(unknown)
 
     wrap_compiler(args.host, args.port, args.compiler)
 
