@@ -43,3 +43,12 @@ class CompilerWrapper(object):
 
     def preprocessed_file(self):
         pass
+
+    def set_source_file(self, path):
+        pass
+
+    def set_object_file(self, path):
+        pass
+
+    def set_preprocessed_file(self, path):
+        pass

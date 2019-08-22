@@ -16,7 +16,11 @@ class MSVCWrapper(CompilerWrapper):
 
     def _is_source_file(self, path):
         ext = path.split('.')[-1].lower()
-        return ext in ('c', 'cpp', 'cc', 'cxx')
+        return ext in ('c', 'cpp', 'cc', 'cxx', 'i', 'ii')
+
+    def _is_preprocessed_source_file(self, path):
+        ext = path.split('.')[-1].lower()
+        return ext in ('i', 'ii')
 
     def can_handle_command(self):
         source_count = 0
@@ -28,7 +32,7 @@ class MSVCWrapper(CompilerWrapper):
             if skip_next_arg:
                 skip_next_arg = False
                 continue
-            if arg in ('/c', '/C'):
+            if arg in ('/c', '-c'):
                 is_object_compilation = True
             elif arg[0] == '@':
                 raise UCM('Response files are not supported')
@@ -36,14 +40,17 @@ class MSVCWrapper(CompilerWrapper):
                 raise UCM('PDB generation is not supported')
             elif arg.startswith("/Fo"):
                 has_object_file = True
+                self._objfile = arg[3:]
             elif arg.startswith('/MP'):
                 raise UCM('Multiprocessing mode is unsupported')
             elif self._is_source_file(arg):
                 self._srcfile = arg
                 source_count += 1
 
-        if source_count != 1:
+        if source_count > 1:
             raise UCM('Multiple source files')
+        elif source_count == 0:
+            raise UCM('No source files')
         if not (is_object_compilation and has_object_file):
             raise UCM('Only compilation of a single source file is supported')
 
@@ -87,6 +94,14 @@ class MSVCWrapper(CompilerWrapper):
     def object_file(self):
         return self._objfile
 
+    def set_object_file(self, objfile):
+        if objfile == self._objfile:
+            return
+        args = [a if not a.startswith('/Fo') else '/Fo{}'.format(objfile)
+                for a in self._args]
+        self._args = args
+        self._objfile = objfile
+
     def preprocessed_file(self):
         if self._preprocessed_file is None:
             objname_woext = self._objfile.split('.')[:-1]
@@ -94,5 +109,15 @@ class MSVCWrapper(CompilerWrapper):
             self._preprocessed_file = '.'.join(objname_woext)
         return self._preprocessed_file
 
+    def set_preprocessed_file(self, path):
+        self._preprocessed_file = path
+
     def source_file(self):
         return self._srcfile
+
+    def set_source_file(self, srcfile):
+        if srcfile == self._srcfile:
+            return
+        new_args = [a if a != self._srcfile else srcfile for a in self._args]
+        self._args = new_args
+        self._srcfile = srcfile
