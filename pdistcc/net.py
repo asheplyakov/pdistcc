@@ -8,17 +8,56 @@ DCC_TOKEN_HEADER_LEN = 12
 DCC_VERSION = 1
 
 
+class ProtocolError(Exception):
+    pass
+
+
+class InvalidToken(ProtocolError):
+    def __init__(self, fmt, *args, **kwargs):
+        super().__init__()
+        self.message = fmt.format(*args, **kwargs)
+
+    def __str__(self):
+        return 'InvalidToken: ' + self.message
+
+
+def dcc_encode(name, val):
+    return '{0}{1:08x}'.format(name, val).encode('utf-8')
+
+
+def dcc_decode(token):
+    if len(token) != DCC_TOKEN_HEADER_LEN:
+        raise InvalidToken("expected {0} bytes, got {1}",
+                           DCC_TOKEN_HEADER_LEN,
+                           len(token))
+    name = token[:4]
+    size = int(token[4:], 16)
+    return name, size
+
+
+def recv_exactly(s, count):
+    data = b''
+    remaining = count
+    while remaining > 0:
+        data += s.recv(remaining)
+        remaining = count - len(data)
+    return data
+
+
+def read_field(s, with_data=True):
+    data = recv_exactly(s, DCC_TOKEN_HEADER_LEN)
+    name, tlen = dcc_decode(data)
+    val = b''
+    if with_data and tlen > 0:
+        val = recv_exactly(s, tlen)
+    return name, tlen, val
+
+
+def to_string(b):
+    return b.decode('utf-8')
+
+
 def dcc_compile(doti, args, host='127.0.0.1', port=3632, ofile='a.out'):
-
-    def dcc_encode(name, val):
-        return '{0}{1:08x}'.format(name, val).encode('utf-8')
-
-    def dcc_decode(token):
-        if len(token) != DCC_TOKEN_HEADER_LEN:
-            raise RuntimeError("expected %d bytes, got %d" % (DCC_TOKEN_HEADER_LEN, len(token)))
-        name = token[:4]
-        size = int(token[4:], 16)
-        return name, size
 
     def request(s):
         buf = dcc_encode('DIST', DCC_VERSION)
@@ -41,56 +80,35 @@ def dcc_compile(doti, args, host='127.0.0.1', port=3632, ofile='a.out'):
                 s.sendall(chunk)
                 remaining -= len(chunk)
 
-    def recv_exactly(s, count):
-        data = b''
-        remaining = count
-        while remaining > 0:
-            data += s.recv(remaining)
-            remaining = count - len(data)
-        return data
+    def handle_response(s):
+        greeting, version, _ = read_field(s, False)
+        if greeting != b'DONE' or version != 1:
+            raise InvalidToken('expected DONE, got "{}"', to_string(greeting))
 
-    def read_field(s, with_data=True):
-        data = recv_exactly(s, DCC_TOKEN_HEADER_LEN)
-        name, tlen = dcc_decode(data)
-        val = b''
-        if with_data and tlen > 0:
-            val = recv_exactly(s, tlen)
-        return name, tlen, val
-
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect((host, port))
-        request(s)
-
-        greeting = recv_exactly(s, DCC_TOKEN_HEADER_LEN)
-        expected_greeting = dcc_encode('DONE', 1)
-        if greeting != expected_greeting:
-            raise RuntimeError('expected DONE, got "%s"' % greeting.decode('utf-8'))
-
-        status_str = recv_exactly(s, DCC_TOKEN_HEADER_LEN)
-        if status_str[:4] != b'STAT':
-            raise RuntimeError('expected STAT, got "%s"' % status_str.decode('utf-8'))
-        status = int(status_str[4:], 16)
+        field, status, _ = read_field(s, False)
+        if field != b'STAT':
+            raise InvalidToken('expected STAT, got "{}"', to_string(field))
 
         field, flen, val = read_field(s)
         if field != b'SERR':
-            raise RuntimeError('expected SERR, got "%s"' % val.decode('utf-8'))
+            raise InvalidToken('expected SERR, got "{}"', to_string(field))
 
         if flen > 0:
-            sys.stderr.write(val.decode('utf-8'))
+            sys.stderr.buffer.write(val)
 
         field, flen, val = read_field(s)
         if field != b'SOUT':
-            raise RuntimeError('expected SOUT, got "%s"' % val.decode('utf-8'))
+            raise InvalidToken('expected SOUT, got "{}"', to_string(field))
 
         if flen > 0:
-            sys.stdout.write(val.decode('utf-8'))
+            sys.stdout.buffer.write(val)
 
         if status != 0:
             sys.exit(status)
 
         field, flen, _ = read_field(s, False)
         if field != b'DOTO':
-            raise RuntimeError('expected DOTO, got "%s"' % val.decode('utf-8'))
+            raise InvalidToken('expected DOTO, got "{}"' % to_string(field))
 
         left = flen
         with open(ofile, 'wb') as aout:
@@ -99,3 +117,8 @@ def dcc_compile(doti, args, host='127.0.0.1', port=3632, ofile='a.out'):
                 aout.write(val)
                 left -= len(val)
             aout.flush()
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.connect((host, port))
+        request(s)
+        handle_response(s)
