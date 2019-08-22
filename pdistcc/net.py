@@ -53,6 +53,14 @@ def read_field(s, with_data=True):
     return name, tlen, val
 
 
+def chunked_read_write(sock, fobj, size, chunk_size=4096):
+    remaining = size
+    while remaining > 0:
+        chunk = sock.recv(chunk_size)
+        fobj.write(chunk)
+        remaining -= len(chunk)
+
+
 def to_string(b):
     return b.decode('utf-8')
 
@@ -89,19 +97,15 @@ def dcc_compile(doti, args, host='127.0.0.1', port=3632, ofile='a.out'):
         if field != b'STAT':
             raise InvalidToken('expected STAT, got "{}"', to_string(field))
 
-        field, flen, val = read_field(s)
+        field, flen, _ = read_field(s, False)
         if field != b'SERR':
             raise InvalidToken('expected SERR, got "{}"', to_string(field))
+        chunked_read_write(s, sys.stderr.buffer, flen)
 
-        if flen > 0:
-            sys.stderr.buffer.write(val)
-
-        field, flen, val = read_field(s)
+        field, flen, _ = read_field(s, False)
         if field != b'SOUT':
             raise InvalidToken('expected SOUT, got "{}"', to_string(field))
-
-        if flen > 0:
-            sys.stdout.buffer.write(val)
+        chunked_read_write(s, sys.stdout.buffer, flen)
 
         if status != 0:
             sys.exit(status)
@@ -110,12 +114,8 @@ def dcc_compile(doti, args, host='127.0.0.1', port=3632, ofile='a.out'):
         if field != b'DOTO':
             raise InvalidToken('expected DOTO, got "{}"' % to_string(field))
 
-        left = flen
         with open(ofile, 'wb') as aout:
-            while left > 0:
-                val = s.recv(4096)
-                aout.write(val)
-                left -= len(val)
+            chunked_read_write(s, aout, flen)
             aout.flush()
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
