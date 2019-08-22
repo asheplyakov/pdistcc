@@ -8,6 +8,9 @@ LANG_CXX = 'c++'
 
 
 class MSVCWrapper(CompilerWrapper):
+    # FIXME: for now this supports only clang-cl on the remote side.
+    # A real msvc needs tons of environment variables to work properly.
+
     def __init__(self, args):
         super().__init__(args)
         self._srcfile = None
