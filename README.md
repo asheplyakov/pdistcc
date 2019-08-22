@@ -1,4 +1,4 @@
-# Portable dumb distcc client
+# Portable dumb distcc
 
 ## Goals
 
