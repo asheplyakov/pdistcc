@@ -16,6 +16,15 @@ class MSVCWrapper(CompilerWrapper):
         self._srcfile = None
         self._objfile = None
         self._preprocessed_file = None
+        self._distcc_compat = False
+
+    @property
+    def distcc_compat(self):
+        return self._distcc_compat
+
+    @distcc_compat.setter
+    def distcc_compat(self, val):
+        self._distcc_compat = val
 
     def _is_source_file(self, path):
         ext = path.split('.')[-1].lower()
@@ -86,7 +95,7 @@ class MSVCWrapper(CompilerWrapper):
         for arg in self._args:
             if arg == '/c':
                 # XXX: distcc
-                cmd.append('-c')
+                cmd.append('-c' if self._distcc_compat else '/c')
             elif arg == self._srcfile:
                 cmd.append('/TP' if self._lang() == LANG_CXX else '/TC')
                 cmd.append(self._preprocessed_file)
