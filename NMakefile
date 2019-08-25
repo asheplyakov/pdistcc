@@ -2,9 +2,10 @@
 thunderingherd.exe: thunderingherd.obj
 	link.exe /NOLOGO /OUT:thunderingherd.exe /SUBSYSTEM:console thunderingherd.obj
 
-thunderingherd.obj: dat/thunderingherd_msvc.ii
-	python3 pdistcc/pdistcc.py --port 36322 dat/thunderingherd_msvc.ii thunderingherd.obj -- /usr/local/bin/clang-cl.exe /EHs /O2 /Z7 -c thunderingherd.cpp
+thunderingherd.obj: dat/thunderingherd.cpp
+	python3.7 ./bin/pdistcc.py cl.exe /EHs /Z7 /O2 /c /Fothunderingherd.obj dat/thunderingherd.cpp
 
-dat/thunderingherd_msvc.ii: dat/thunderingherd.cpp
-	cl.exe /NOLOGO /EHs /std:c++14 /P /Fi:dat\thunderingherd_msvc.ii dat/thunderingherd.cpp
+clean:
+	-@del /Q thunderingherd.exe 2>NUL
+	-@del /Q thunderingherd.obj 2>NUL
 
