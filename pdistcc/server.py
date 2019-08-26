@@ -7,6 +7,7 @@ import subprocess
 
 from .net import (
     InvalidToken,
+    chunked_send,
     dcc_encode,
     read_field,
     to_string,
@@ -87,7 +88,6 @@ class Distccd(socketserver.BaseRequestHandler):
         return ret, stdout, stderr, objfile
 
     def _reply(self, ret, stdout, stderr, objfile):
-        doto_len = os.stat(objfile).st_size
         buf = dcc_encode('DONE', DCC_PROTOCOL)
         buf += dcc_encode('STAT', ret)
         buf += dcc_encode('SERR', len(stderr))
@@ -95,13 +95,18 @@ class Distccd(socketserver.BaseRequestHandler):
         self.request.sendall(stderr)
         self.request.sendall(dcc_encode('SOUT', len(stdout)))
         self.request.sendall(stdout)
+
+        if os.path.isfile(objfile):
+            doto_len = os.stat(objfile).st_size
+        elif ret != 0:
+            doto_len = 0
+        else:
+            raise RuntimeError("compiler failed to produce '%s' file" % objfile)
+
         self.request.sendall(dcc_encode('DOTO', doto_len))
-        remaining = doto_len
-        with open(objfile, 'rb') as doto:
-            while remaining > 0:
-                chunk = doto.read(4096)
-                self.request.sendall(chunk)
-                remaining -= len(chunk)
+        if doto_len > 0:
+            with open(objfile, 'rb') as doto:
+                chunked_send(self.request, doto, doto_len)
 
     def handle(self):
         cleanup_files = []

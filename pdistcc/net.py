@@ -61,6 +61,14 @@ def chunked_read_write(sock, fobj, size, chunk_size=4096):
         remaining -= len(chunk)
 
 
+def chunked_send(sock, fobj, size, chunk_size=4096):
+    remaining = size
+    while remaining > 0:
+        chunk = fobj.read(chunk_size)
+        sock.sendall(chunk)
+        remaining -= len(chunk)
+
+
 def to_string(b):
     return b.decode('utf-8')
 
@@ -82,11 +90,7 @@ def dcc_compile(doti, args, host='127.0.0.1', port=3632, ofile='a.out'):
         s.sendall(buf)
 
         with open(doti, 'rb') as f:
-            remaining = doti_len
-            while remaining > 0:
-                chunk = f.read(4096)
-                s.sendall(chunk)
-                remaining -= len(chunk)
+            chunked_send(s, f, doti_len)
 
     def handle_response(s):
         greeting, version, _ = read_field(s, False)
