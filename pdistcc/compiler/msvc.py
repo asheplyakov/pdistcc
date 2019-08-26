@@ -91,12 +91,20 @@ class MSVCWrapper(CompilerWrapper):
         self._preprocessed_file = objname_woext.join('.')
         return self._preprocessed_file
 
+    def _is_pdb_related(self, arg):
+        return arg in ('/FS') or arg.startswith('/Fd')
+
     def preprocessor_cmd(self):
         cmd = [self._compiler]
         for arg in self._args:
             skip_arg = False
             if arg in ('/c', '/E', '-c'):
                 skip_arg = True
+            elif self._is_pdb_related(arg):
+                # PDB generation does not work with distributed compilation,
+                # and can_handle_command bails out properly if PDB is requested.
+                # Yet some tools (CMake's Ninja generator) specify various PDB
+                # related flags even if no PDB is being generated. Skip them.
                 skip_arg = True
             elif arg.startswith('/Fo'):
                 skip_arg = True
@@ -120,6 +128,12 @@ class MSVCWrapper(CompilerWrapper):
                 if not any(lang in self._args for lang in ('/TC', '/TP')):
                     cmd.append('/TP' if self._lang() == LANG_CXX else '/TC')
                 cmd.append(self._preprocessed_file)
+            elif self._is_pdb_related(arg):
+                # PDB generation does not work with distributed compilation,
+                # and can_handle_command bails out properly if PDB is requested.
+                # Yet some tools (CMake's Ninja generator) specify various PDB
+                # related flags even if no PDB is being generated. Skip them.
+                continue
             else:
                 cmd.append(arg)
         return cmd
