@@ -1,4 +1,5 @@
 
+import sys
 from .wrapper import CompilerWrapper
 from .errors import UnsupportedCompilationMode as UCM
 
@@ -17,6 +18,22 @@ class MSVCWrapper(CompilerWrapper):
         self._objfile = None
         self._preprocessed_file = None
         self._distcc_compat = False
+        self._use_clang = sys.platform != 'win32'
+        self._clang_path = None if sys.platform == 'win32' else 'clang-cl'
+
+    @property
+    def clang_path(self):
+        return self._clang_path
+
+    @property
+    def use_clang(self):
+        return self._use_clang
+
+    @clang_path.setter
+    def clang_path(self, value):
+        self._clang_path = value
+        if value:
+            self._use_clang = True
 
     @property
     def distcc_compat(self):
@@ -91,7 +108,7 @@ class MSVCWrapper(CompilerWrapper):
         return LANG_C if srcext == 'c' else LANG_CXX
 
     def compiler_cmd(self):
-        cmd = [self._compiler]
+        cmd = [self._compiler if not self._use_clang else self._clang_path]
         for arg in self._args:
             if arg == '/c':
                 # XXX: distcc
