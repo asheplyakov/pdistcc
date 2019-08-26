@@ -1,4 +1,5 @@
 
+import copy
 import os
 import tempfile
 import socketserver
@@ -24,6 +25,10 @@ def writeall(fd, chunk):
 
 
 class Distccd(socketserver.BaseRequestHandler):
+    def __init__(self, settings, *args, **kwargs):
+        # XXX: super().__init__ calls handle(), which uses _settings
+        self._settings = settings
+        super().__init__(*args, **kwargs)
 
     def _read_compiler_cmd(self, argc):
         compiler_cmd = []
@@ -102,7 +107,7 @@ class Distccd(socketserver.BaseRequestHandler):
         cleanup_files = []
         try:
             compiler_cmd = self._read_request()
-            wrapper = find_compiler_wrapper(compiler_cmd)
+            wrapper = find_compiler_wrapper(compiler_cmd, self._settings)
             wrapper.can_handle_command()
             doti_file = self._read_doti()
             cleanup_files.append(doti_file)
@@ -116,7 +121,11 @@ class Distccd(socketserver.BaseRequestHandler):
                     os.remove(p)
 
 
-def daemon(host='127.0.0.1', port=3632):
+def daemon(settings, host='127.0.0.1', port=3632):
+    def distccd_factory(*args, **kwargs):
+        return Distccd(copy.deepcopy(settings), *args, **kwargs)
+
     socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.ThreadingTCPServer((host, port), Distccd) as server:
+    print("listening at {0}:{1}".format(host, port))
+    with socketserver.ThreadingTCPServer((host, port), distccd_factory) as server:
         server.serve_forever()

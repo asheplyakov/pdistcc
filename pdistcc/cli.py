@@ -4,11 +4,13 @@ import argparse
 import os
 import re
 
+from .config import (
+     DISTCCD_PORT,
+     server_settings,
+     client_settings,
+)
 from .compiler import wrap_compiler
 from .server import daemon
-from .sched import pick_server
-
-DISTCCD_PORT = 3632
 
 
 def parse_distcc_host(h):
@@ -24,32 +26,33 @@ def parse_distcc_host(h):
     }
 
 
+def _merge_settings_with_cli(settings, args):
+    merged_settings = {}
+    for k in settings.keys():
+        cli_val = getattr(args, k) if hasattr(args, k) else None
+        merged_settings[k] = cli_val or settings[k]
+    return merged_settings
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--host', dest='hosts', action='append', nargs='*',
-                        help='where to compile')
+    parser.add_argument('--host', dest='distcc_hosts', action='append',
+                        nargs='*', help='where to compile')
     parser.add_argument("compiler", nargs='*', help="compiler and arguments")
     args, unknown = parser.parse_known_args()
     args.compiler.extend(unknown)
 
-    if args.hosts is None:
-        try:
-            args.hosts = os.environ['DISTCC_HOSTS'].split()
-        except KeyError:
-            pass
-    if args.hosts is None:
-        args.hosts = ['127.0.0.1:{}/10'.format(DISTCCD_PORT)]
-
-    distcc_hosts = [parse_distcc_host(h) for h in args.hosts]
-    host = pick_server(distcc_hosts, tuple(args.compiler))
-
-    wrap_compiler(host['host'], host['port'], args.compiler)
+    settings = _merge_settings_with_cli(client_settings(), args)
+    distcc_hosts = [parse_distcc_host(h) for h in settings['distcc_hosts']]
+    wrap_compiler(distcc_hosts, args.compiler, settings)
 
 
 def server_main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--host', help='IP to bind to', default='127.0.0.1')
-    parser.add_argument('--port', type=int,
-                        help='port to listen at', default=DISTCCD_PORT)
+    parser.add_argument('--host', help='IP to bind to')
+    parser.add_argument('--port', type=int, help='port to listen at')
     args = parser.parse_args()
-    daemon(host=args.host, port=args.port)
+    settings = _merge_settings_with_cli(server_settings(), args)
+    daemon(settings,
+           host=settings['host'],
+           port=settings['port'])

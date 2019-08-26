@@ -12,14 +12,16 @@ class MSVCWrapper(CompilerWrapper):
     # FIXME: for now this supports only clang-cl on the remote side.
     # A real msvc needs tons of environment variables to work properly.
 
-    def __init__(self, args):
+    def __init__(self, args, settings={}):
         super().__init__(args)
         self._srcfile = None
         self._objfile = None
         self._preprocessed_file = None
-        self._distcc_compat = False
-        self._use_clang = sys.platform != 'win32'
-        self._clang_path = None if sys.platform == 'win32' else 'clang-cl'
+        cfg = settings.get('msvc', {})
+        self._distcc_compat = cfg.get('distcc_compat', False)
+        self._use_clang = cfg.get('use_clang', sys.platform != 'win32')
+        self._clang_path = cfg.get('clang_path',
+                                   'clang-cl' if self._use_clang else None)
 
     @property
     def clang_path(self):

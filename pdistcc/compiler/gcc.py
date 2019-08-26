@@ -12,7 +12,7 @@ class GCCWrapper(CompilerWrapper):
         'c': LANG_C,
     }
 
-    def __init__(self, args):
+    def __init__(self, args, settings={}):
         super().__init__(args)
         self._srcfile = None
         self._objfile = None
