@@ -56,7 +56,7 @@ def read_field(s, with_data=True):
 def chunked_read_write(sock, fobj, size, chunk_size=4096):
     remaining = size
     while remaining > 0:
-        chunk = sock.recv(chunk_size)
+        chunk = sock.recv(chunk_size if remaining > chunk_size else remaining)
         fobj.write(chunk)
         remaining -= len(chunk)
 
