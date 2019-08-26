@@ -95,7 +95,8 @@ class MSVCWrapper(CompilerWrapper):
         cmd = [self._compiler]
         for arg in self._args:
             skip_arg = False
-            if arg in ('/c', '/E'):
+            if arg in ('/c', '/E', '-c'):
+                skip_arg = True
                 skip_arg = True
             elif arg.startswith('/Fo'):
                 skip_arg = True
