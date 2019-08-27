@@ -102,3 +102,29 @@ of running several tasks in parallel. Therefore one needs a proper build tool: [
   set DISTCC_HOSTS="foo:3632/10 bar:3632/10"
   cmake --build . --verbose --parallel 10
   ```
+
+## Heterogeneous compilation cluster with [clang](https://clang.llvm.org)
+
+* Install `clang` which supports Windows and Linux targets on every build machine
+* Run `pdistccd` on every build machine
+* When configuring the project explicitly specify the OS/architecture:
+
+  ```bash
+  cmake \
+    -DCMAKE_CXX_COMPILER='clang++' \
+    -DCMAKE_C_COMPILER='clang' \
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DCMAKE_CXX_FLAGS_RELWITHDEBINFO='-O2 -g --target=x86_64-pc-linux-gnu' \
+    -DCMAKE_C_FLAGS_RELWITHDEBINFO='-O2 -g --target=x86_64-pc-linux-gnu' \
+    -DCMAKE_CXX_COMPILER_LAUNCHER=path/to/pdistcc/bin/pdistcc.py \
+    -DCMAKE_C_COMPILER_LAUNCHER=path/to/pdistcc/bin/pdistcc.py \
+    path/to/sources
+  ```
+* Compile as usual:
+
+  ```bash
+  export DISTCC_HOSTS='foo:3632/10 bar:3632/10 bigiron:3632/40'
+  cmake --build . --verbose --parallel=20
+  ```
+
+Note: on Linux machines one can use the standard [distcc](https://github.com/distcc/distcc) as a client.
