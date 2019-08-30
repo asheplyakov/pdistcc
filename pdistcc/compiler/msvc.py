@@ -124,6 +124,8 @@ class MSVCWrapper(CompilerWrapper):
             if arg == '/c':
                 # XXX: distcc
                 cmd.append('-c' if self._distcc_compat else '/c')
+            elif self.is_preprocessor_flag(arg):
+                continue
             elif arg == self._srcfile:
                 if not any(lang in self._args for lang in ('/TC', '/TP')):
                     cmd.append('/TP' if self._lang() == LANG_CXX else '/TC')
@@ -140,6 +142,9 @@ class MSVCWrapper(CompilerWrapper):
 
     def object_file(self):
         return self._objfile
+
+    def is_preprocessor_flag(self, arg):
+        return any(arg.startswith(f) for f in ('/D', '/I'))
 
     def set_object_file(self, objfile):
         if objfile == self._objfile:

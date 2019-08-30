@@ -35,6 +35,9 @@ class CompilerWrapper(object):
     def compiler_cmd(self):
         return []
 
+    def is_preprocessor_flag(self, arg):
+        return False
+
     def source_file(self):
         pass
 

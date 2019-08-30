@@ -122,8 +122,13 @@ class GCCWrapper(CompilerWrapper):
     def compiler_cmd(self):
         cmd = [self._compiler]
         for arg in self._args:
-            if arg != self._srcfile:
-                cmd.append(arg)
-            else:
+            if self.is_preprocessor_flag(arg):
+                continue
+            elif arg == self._srcfile:
                 cmd.append(self._preprocessed_file)
+            else:
+                cmd.append(arg)
         return cmd
+
+    def is_preprocessor_flag(self, arg):
+        return any(arg.startswith(f) for f in ('-I', '-D'))
