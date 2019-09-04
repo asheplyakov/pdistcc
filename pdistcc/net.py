@@ -40,6 +40,8 @@ def recv_exactly(s, count):
     remaining = count
     while remaining > 0:
         data += s.recv(remaining)
+        if len(data) == 0:
+           raise ProtocolError('peer disconnected')
         remaining = count - len(data)
     return data
 
