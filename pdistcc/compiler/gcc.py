@@ -121,8 +121,13 @@ class GCCWrapper(CompilerWrapper):
 
     def compiler_cmd(self):
         cmd = [self._compiler]
+        skip, skip_next = False, False
         for arg in self._args:
-            if self.is_preprocessor_flag(arg):
+            if skip_next:
+               skip_next = False
+               continue
+            skip, skip_next = self.is_preprocessor_flag(arg)
+            if skip:
                 continue
             elif arg == self._srcfile:
                 cmd.append(self._preprocessed_file)
@@ -131,4 +136,12 @@ class GCCWrapper(CompilerWrapper):
         return cmd
 
     def is_preprocessor_flag(self, arg):
-        return any(arg.startswith(f) for f in ('-I', '-D'))
+        if any(arg.startswith(f) for f in ('-I', '-D')):
+            return True, False
+        elif arg in ('-MD', '-M'):
+            return True, False
+        elif arg in ('-MT', '-MF'):
+            return True, True
+        else:
+            return False, False
+
