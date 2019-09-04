@@ -120,6 +120,9 @@ class Distccd(socketserver.BaseRequestHandler):
             wrapper.set_preprocessed_file(doti_file)
             ret, stdout, stderr, objfile = self._compile(wrapper, cleanup_files)
             self._reply(ret, stdout, stderr, objfile)
+        except BrokenPipeError:
+            # client has disconnected, ignore
+            pass
         finally:
             for p in cleanup_files:
                 if os.path.isfile(p):
