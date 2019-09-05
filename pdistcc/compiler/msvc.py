@@ -49,20 +49,12 @@ class MSVCWrapper(CompilerWrapper):
         ext = path.split('.')[-1].lower()
         return ext in ('c', 'cpp', 'cc', 'cxx', 'i', 'ii')
 
-    def _is_preprocessed_source_file(self, path):
-        ext = path.split('.')[-1].lower()
-        return ext in ('i', 'ii')
-
     def can_handle_command(self):
         source_count = 0
         is_object_compilation = False
         has_object_file = False
 
-        skip_next_arg = False
         for arg in self._args:
-            if skip_next_arg:
-                skip_next_arg = False
-                continue
             if arg in ('/c', '-c'):
                 is_object_compilation = True
             elif arg[0] == '@':
@@ -84,12 +76,6 @@ class MSVCWrapper(CompilerWrapper):
             raise UCM('No source files')
         if not (is_object_compilation and has_object_file):
             raise UCM('Only compilation of a single source file is supported')
-
-    def _preprocessed_filename(self):
-        objname_woext = self._objfile.split('.')[:-1]
-        objname_woext.append('i')
-        self._preprocessed_file = objname_woext.join('.')
-        return self._preprocessed_file
 
     def _is_pdb_related(self, arg):
         return arg in ('/FS') or arg.startswith('/Fd')

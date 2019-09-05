@@ -25,33 +25,3 @@ class CompilerWrapper(object):
                     host=host,
                     port=port,
                     ofile=self.object_file())
-
-    def can_handle_command(self):
-        return False
-
-    def preprocessor_cmd(self):
-        return []
-
-    def compiler_cmd(self):
-        return []
-
-    def is_preprocessor_flag(self, arg):
-        return False
-
-    def source_file(self):
-        pass
-
-    def object_file(self):
-        pass
-
-    def preprocessed_file(self):
-        pass
-
-    def set_source_file(self, path):
-        pass
-
-    def set_object_file(self, path):
-        pass
-
-    def set_preprocessed_file(self, path):
-        pass

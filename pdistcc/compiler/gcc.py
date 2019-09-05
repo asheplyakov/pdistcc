@@ -30,10 +30,6 @@ class GCCWrapper(CompilerWrapper):
         fileext = arg.split('.')[-1].lower()
         return fileext in self.source_file_extensions
 
-    def _is_preprocessed_source_file(self, arg):
-        fileext = arg.split('.')[-1].lower()
-        return fileext in ('i', 'ii')
-
     def _lang(self):
         srcext = self._srcfile.split('.')[-1].lower()
         return self.extension2lang.get(srcext, LANG_CXX)
