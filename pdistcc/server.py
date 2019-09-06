@@ -8,6 +8,7 @@ import subprocess
 
 from .net import (
     InvalidToken,
+    chunked_read_write,
     chunked_send,
     dcc_encode,
     read_field,
@@ -17,13 +18,6 @@ from .net import (
 from .compiler import find_compiler_wrapper
 
 DCC_PROTOCOL = 1
-
-
-def writeall(fd, chunk):
-    remaining = len(chunk)
-    while remaining > 0:
-        written = os.write(fd, chunk[-remaining:])
-        remaining -= written
 
 
 class Distccd(socketserver.BaseRequestHandler):
@@ -59,13 +53,9 @@ class Distccd(socketserver.BaseRequestHandler):
         if name != b'DOTI':
             raise InvalidToken("expected DOTI, got {}", to_string(name))
         fd, path = tempfile.mkstemp(prefix='pdistcc', suffix='.ii')
-        remaining = doti_bytes
-        while remaining > 0:
-            chunk = self.request.recv(4096)
-            writeall(fd, chunk)
-            remaining -= len(chunk)
-        os.fsync(fd)
-        os.close(fd)
+        with os.fdopen(fd, 'wb') as dotif:
+            chunked_read_write(self.request, dotif, doti_bytes)
+            dotif.flush()
         return path
 
     def _compile(self, wrapper, cleanup_files):

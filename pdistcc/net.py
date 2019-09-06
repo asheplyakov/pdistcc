@@ -60,6 +60,8 @@ def chunked_read_write(sock, fobj, size, chunk_size=4096):
     remaining = size
     while remaining > 0:
         chunk = sock.recv(chunk_size if remaining > chunk_size else remaining)
+        if len(chunk) == 0:
+            raise ProtocolError('peer disconnected')
         fobj.write(chunk)
         remaining -= len(chunk)
 
