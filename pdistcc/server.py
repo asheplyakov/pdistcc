@@ -107,7 +107,6 @@ class Distccd(socketserver.BaseRequestHandler):
             wrapper.can_handle_command()
             doti_file = self._read_doti()
             cleanup_files.append(doti_file)
-            wrapper.set_source_file(doti_file)
             wrapper.set_preprocessed_file(doti_file)
             ret, stdout, stderr, objfile = self._compile(wrapper, cleanup_files)
             self._reply(ret, stdout, stderr, objfile)
