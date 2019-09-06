@@ -1,5 +1,6 @@
 
 import copy
+import multiprocessing
 import os
 import tempfile
 import socketserver
@@ -134,6 +135,7 @@ def daemon(settings, host='127.0.0.1', port=3632):
         return Distccd(copy.deepcopy(settings), *args, **kwargs)
 
     socketserver.TCPServer.allow_reuse_address = True
+    socketserver.TCPServer.request_queue_size = multiprocessing.cpu_count() + 1
     print("listening at {0}:{1}".format(host, port))
     with socketserver.ThreadingTCPServer((host, port), distccd_factory) as server:
         server.serve_forever()
