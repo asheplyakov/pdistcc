@@ -1,6 +1,7 @@
 
 import copy
 import json
+import logging
 import os
 
 
@@ -21,12 +22,14 @@ def _find_config(name):
 def _server_settings():
     return {
         'listen': '127.0.0.1:{}'.format(DISTCCD_PORT),
+        'loglevel': 'DEBUG',
     }
 
 
 def _client_settings():
     return {
         'distcc_hosts': ['127.0.0.1:{}/10'.format(DISTCCD_PORT)],
+        'loglevel': 'DEBUG',
     }
 
 
@@ -50,11 +53,22 @@ def _settings(name, default):
     return settings
 
 
+def parse_loglevel(strr):
+    levels = {
+        'DEBUG': logging.DEBUG,
+        'WARN': logging.WARNING,
+        'INFO': logging.INFO,
+    }
+    return levels.get(strr.upper(), logging.DEBUG)
+
+
 def server_settings():
     settings = _settings('server.json', _server_settings())
     host, port = settings['listen'].split(':')
     settings['host'] = host
     settings['port'] = int(port)
+    loglevel = parse_loglevel(settings['loglevel'])
+    settings['loglevel'] = loglevel
     return settings
 
 
