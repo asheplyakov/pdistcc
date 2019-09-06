@@ -1,0 +1,3 @@
+{
+  "distcc_hosts": ["foo.example:3632/10", "bar.example:3632/20"]
+}

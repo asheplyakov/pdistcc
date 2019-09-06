@@ -1,0 +1,12 @@
+{
+  "listen": "0.0.0.0:3632",
+
+  "gcc": {
+     "compiler_dir": "/opt/rh/devtoolset-7/root/usr/bin"
+  },
+
+  "msvc": {
+     "use_clang": true,
+     "clang_path": "/usr/local/bin/clang-cl"
+  }
+}

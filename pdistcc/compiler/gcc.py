@@ -1,9 +1,13 @@
 
+import os
+
 from .wrapper import CompilerWrapper
 from .errors import UnsupportedCompilationMode
 
 LANG_C = 'c'
 LANG_CXX = 'c++'
+
+COMPILER_DIR = 'compiler_dir'
 
 
 class GCCWrapper(CompilerWrapper):
@@ -17,6 +21,10 @@ class GCCWrapper(CompilerWrapper):
         self._srcfile = None
         self._objfile = None
         self._preprocessed_file = None
+        cfg = settings.get('gcc', {})
+        if COMPILER_DIR in cfg:
+            compiler = os.path.basename(self._compiler)
+            self._compiler = os.path.join(cfg[COMPILER_DIR], compiler)
 
     def _is_source_file(self, arg):
         fileext = arg.split('.')[-1].lower()
