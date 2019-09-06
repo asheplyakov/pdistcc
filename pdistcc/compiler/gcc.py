@@ -55,6 +55,9 @@ class GCCWrapper(CompilerWrapper):
                 continue
             if arg == '-c':
                 is_object_compilation = True
+            elif arg == '-x':
+                skip_next_arg = True
+                continue
             elif self._is_source_file(arg):
                 source_count += 1
                 self._srcfile = arg
@@ -138,6 +141,9 @@ class GCCWrapper(CompilerWrapper):
             if skip:
                 continue
             elif arg == self._srcfile:
+                if '-x' not in self._args:
+                    # explicitly specify source language
+                    cmd.extend(['-x', self._lang()])
                 cmd.append(self._preprocessed_file)
             else:
                 cmd.append(arg)
