@@ -3,6 +3,8 @@ import os
 import socket
 import sys
 
+from contextlib import contextmanager
+
 
 DCC_TOKEN_HEADER_LEN = 12
 DCC_VERSION = 1
@@ -41,7 +43,7 @@ def recv_exactly(s, count):
     while remaining > 0:
         chunk = s.recv(remaining)
         if len(chunk) == 0:
-           raise ProtocolError('peer disconnected')
+            raise ProtocolError('peer disconnected')
         data += chunk
         remaining -= len(chunk)
     return data
@@ -54,6 +56,15 @@ def read_field(s, with_data=True):
     if with_data and tlen > 0:
         val = recv_exactly(s, tlen)
     return name, tlen, val
+
+
+def read_token(sock, expected=None):
+    data = recv_exactly(sock, DCC_TOKEN_HEADER_LEN)
+    name, size = dcc_decode(data)
+    if expected is not None and name != expected:
+        raise InvalidToken('expected "{}", got "{}"',
+                           to_string(name), to_string(expected))
+    return name, size
 
 
 def chunked_read_write(sock, fobj, size, chunk_size=4096):
@@ -78,56 +89,79 @@ def to_string(b):
     return b.decode('utf-8')
 
 
-def dcc_compile(doti, args, host='127.0.0.1', port=3632, ofile='a.out'):
+class FileOpsFactory(object):
+    @contextmanager
+    def open(self, name, flags):
+        f = open(name, flags)
+        try:
+            yield f
+        finally:
+            f.close()
 
-    def request(s):
+    def size(self, f):
+        return os.stat(f.fileno()).st_size
+
+    def flush(self, f):
+        f.flush()
+
+    def close(self, f):
+        f.close()
+
+
+class DccClient(object):
+    def __init__(self, conn,
+                 doti,
+                 ofile,
+                 stdout=sys.stdout.buffer,
+                 stderr=sys.stderr.buffer,
+                 fileops=FileOpsFactory()):
+        self._conn = conn
+        self._doti = doti
+        self._ofile = ofile
+        self._stdout = stdout
+        self._stderr = stderr
+        self._fileops = fileops
+        self._protocol_version = DCC_VERSION
+
+    def request(self, args):
         buf = dcc_encode('DIST', DCC_VERSION)
         buf += dcc_encode('ARGC', len(args))
         for n, arg in enumerate(args):
             argbytes = arg.encode('utf-8')
             buf += dcc_encode('ARGV', len(argbytes))
             buf += argbytes
+        with self._fileops.open(self._doti, 'rb') as doti:
+            doti_len = self._fileops.size(doti)
+            buf += dcc_encode('DOTI', doti_len)
+            self._conn.sendall(buf)
+            chunked_send(self._conn, doti, doti_len)
 
-        st = os.stat(doti)
-        doti_len = st.st_size
-        buf += dcc_encode('DOTI', doti_len)
+    def handle_response(self):
+        _, version = read_token(self._conn, b'DONE')
+        if version != self._protocol_version:
+            raise ProtocolError('unsupported protocol version {}, supported: {}'
+                                .format(version, self._protocol_version))
+        _, status = read_token(self._conn, b'STAT')
 
-        s.sendall(buf)
+        _, serr_len = read_token(self._conn, b'SERR')
+        chunked_read_write(self._conn, self._stderr, serr_len)
 
-        with open(doti, 'rb') as f:
-            chunked_send(s, f, doti_len)
-
-    def handle_response(s):
-        greeting, version, _ = read_field(s, False)
-        if greeting != b'DONE' or version != 1:
-            raise InvalidToken('expected DONE, got "{}"', to_string(greeting))
-
-        field, status, _ = read_field(s, False)
-        if field != b'STAT':
-            raise InvalidToken('expected STAT, got "{}"', to_string(field))
-
-        field, flen, _ = read_field(s, False)
-        if field != b'SERR':
-            raise InvalidToken('expected SERR, got "{}"', to_string(field))
-        chunked_read_write(s, sys.stderr.buffer, flen)
-
-        field, flen, _ = read_field(s, False)
-        if field != b'SOUT':
-            raise InvalidToken('expected SOUT, got "{}"', to_string(field))
-        chunked_read_write(s, sys.stdout.buffer, flen)
+        _, sout_len = read_token(self._conn, b'SOUT')
+        chunked_read_write(self._conn, self._stdout, sout_len)
 
         if status != 0:
-            sys.exit(status)
+            return status
 
-        field, flen, _ = read_field(s, False)
-        if field != b'DOTO':
-            raise InvalidToken('expected DOTO, got "{}"' % to_string(field))
+        _, doto_len = read_token(self._conn, b'DOTO')
+        with self._fileops.open(self._ofile, 'wb') as doto:
+            chunked_read_write(self._conn, doto, doto_len)
+            self._fileops.flush(doto)
+        return status
 
-        with open(ofile, 'wb') as aout:
-            chunked_read_write(s, aout, flen)
-            aout.flush()
 
+def dcc_compile(doti, args, host='127.0.0.1', port=3632, ofile='a.out'):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((host, port))
-        request(s)
-        handle_response(s)
+        dcc = DccClient(s, doti, ofile)
+        dcc.request(args)
+        dcc.handle_response()
