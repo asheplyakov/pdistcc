@@ -18,15 +18,38 @@ from pdistcc.compiler.errors import UnsupportedCompilationMode
 
 class TestGCCWrapper(object):
 
-    def test_omits_preprocessor_args(self):
-        cmdline = '/usr/bin/g++ -O2 -c -DFOO -o foo.o foo.cpp'.split()
+    def test_accepts_single_compile(self):
+        cmdline = 'g++ -c -o foo.o foo.cpp'.split()
         wrapper = GCCWrapper(cmdline)
         wrapper.can_handle_command()
-        preprocessor_cmd = wrapper.preprocessor_cmd()
+        wrapper.preprocessor_cmd()
         remote_cmd = wrapper.compiler_cmd()
-        assert wrapper.object_file() == 'foo.o'
-        assert wrapper.preprocessed_file() == 'foo.ii'
-        assert remote_cmd == '/usr/bin/g++ -O2 -c -o foo.o -x c++ foo.ii'.split()
+        assert remote_cmd == 'g++ -c -o foo.o -x c++ foo.ii'.split()
+
+    def test_handles_c(self):
+        cmdline = 'gcc -c -o foo.o foo.c'.split()
+        wrapper = GCCWrapper(cmdline)
+        wrapper.can_handle_command()
+        wrapper.preprocessor_cmd()
+        remote_cmd = wrapper.compiler_cmd()
+        assert remote_cmd == 'gcc -c -o foo.o -x c foo.i'.split()
+
+    def test_handles_x_cxx(self):
+        cmdline = 'g++ -c -o foo.o -x c++ foo.cpp'.split()
+        wrapper = GCCWrapper(cmdline)
+        wrapper.can_handle_command()
+        wrapper.preprocessor_cmd()
+        remote_cmd = wrapper.compiler_cmd()
+        assert remote_cmd == 'g++ -c -o foo.o -x c++ foo.ii'.split()
+
+    @pytest.mark.parametrize("arg", ['-DFOO', '-Ibar', '-M', '-MD'])
+    def test_omits_preprocessor_args(self, arg):
+        cmdline = 'g++ -O2 -c {} -o foo.o foo.cpp'.format(arg).split()
+        wrapper = GCCWrapper(cmdline)
+        wrapper.can_handle_command()
+        wrapper.preprocessor_cmd()
+        remote_cmd = wrapper.compiler_cmd()
+        assert arg not in remote_cmd
 
     def test_rejects_linking(self):
         cmdline = '/usr/bin/g++ -O2 -o foo foo.cpp'.split()
@@ -55,5 +78,3 @@ class TestGCCWrapper(object):
         wrapper.set_preprocessed_file('foo.ii')
         assert wrapper.preprocessed_file() == 'foo.ii'
         assert wrapper.compiler_cmd() == 'g++ -c -o foo.o -x c++ foo.ii'.split()
-
-
