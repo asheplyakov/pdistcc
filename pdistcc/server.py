@@ -8,6 +8,7 @@ import socketserver
 import subprocess
 
 from .net import (
+    FileOpsFactory,
     InvalidToken,
     chunked_read_write,
     chunked_send,
@@ -26,6 +27,12 @@ class Distccd(socketserver.BaseRequestHandler):
     def __init__(self, settings, *args, **kwargs):
         # XXX: super().__init__ calls handle(), which uses _settings
         self._settings = settings
+        self._fileops = kwargs.get('fileops', FileOpsFactory())
+        self._tempfile = kwargs.get('tempfile', tempfile.NamedTemporaryFile)
+        self._Popen = kwargs.get('popen', subprocess.Popen)
+        for arg in ('fileops', 'tempfile', 'popen'):
+            if arg in kwargs:
+                del kwargs[arg]
         super().__init__(*args, **kwargs)
 
     def _read_compiler_cmd(self, argc):
@@ -52,11 +59,11 @@ class Distccd(socketserver.BaseRequestHandler):
         name, doti_bytes, _ = read_field(self.request, False)
         if name != b'DOTI':
             raise InvalidToken("expected DOTI, got {}", to_string(name))
-        fd, path = tempfile.mkstemp(prefix='pdistcc', suffix='.ii')
         logger.debug('reading doti file')
-        with os.fdopen(fd, 'wb') as dotif:
-            chunked_read_write(self.request, dotif, doti_bytes)
-            dotif.flush()
+        with self._tempfile(suffix='.ii', delete=False) as doti:
+            path = doti.name
+            chunked_read_write(self.request, doti.file, doti_bytes)
+            doti.flush()
         logger.debug('successfully read %s bytes', doti_bytes)
         return path
 
@@ -65,17 +72,16 @@ class Distccd(socketserver.BaseRequestHandler):
         objname = os.path.basename(wrapper.object_file())
 
         # XXX: perhaps this is racy
-        fd, objfile = tempfile.mkstemp(prefix=objname, suffix=objext)
-        os.close(fd)
-        os.remove(objfile)
+        with self._tempfile(prefix=objname, suffix=objext) as f:
+            objfile = f.name
         wrapper.set_object_file(objfile)
         cleanup_files.append(objfile)
 
         compiler_cmd = wrapper.compiler_cmd()
         logger.debug('running compiler: %s', str(compiler_cmd))
-        compiler = subprocess.Popen(compiler_cmd,
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE)
+        compiler = self._Popen(compiler_cmd,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE)
         stdout, stderr = compiler.communicate()
         ret = compiler.returncode
         logger.debug('compiler returned: %s', ret)
@@ -91,21 +97,23 @@ class Distccd(socketserver.BaseRequestHandler):
         self.request.sendall(dcc_encode('SOUT', len(stdout)))
         self.request.sendall(stdout)
 
-        if os.path.isfile(objfile):
-            doto_len = os.stat(objfile).st_size
-        elif ret != 0:
-            doto_len = 0
-        else:
-            raise RuntimeError("compiler failed to produce '%s' file" % objfile)
-
-        self.request.sendall(dcc_encode('DOTO', doto_len))
-        if doto_len > 0:
-            logger.debug('sending object file %s', objfile)
-            with open(objfile, 'rb') as doto:
+        try:
+            with self._fileops.open(objfile, 'rb') as doto:
+                doto_len = self._fileops.size(doto)
+                self.request.sendall(dcc_encode('DOTO', doto_len))
+                logger.debug('sending object file %s', objfile)
                 chunked_send(self.request, doto, doto_len)
-            logger.debug('successfully sent %s bytes', doto_len)
+                logger.debug('successfully sent %s bytes', doto_len)
+        except FileNotFoundError:
+            if ret != 0:
+                self.request.sendall(dcc_encode('DOTO', 0))
+            else:
+                raise RuntimeError("compiler failed to produce '%s' file" % objfile)
+
 
     def handle(self):
+        if 'delayed_handle' in self._settings:
+            pass
         cleanup_files = []
         try:
             compiler_cmd = self._read_request()

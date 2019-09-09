@@ -101,6 +101,9 @@ class FileOpsFactory(object):
     def size(self, f):
         return os.stat(f.fileno()).st_size
 
+    def isfile(self, path):
+        return os.path.isfile(path)
+
     def flush(self, f):
         f.flush()
 
