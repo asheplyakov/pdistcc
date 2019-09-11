@@ -1,0 +1,4 @@
+[run]
+source = pdistcc
+omit =
+    pdistcc/tests/*
