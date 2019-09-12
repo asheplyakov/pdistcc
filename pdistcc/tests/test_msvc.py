@@ -1,18 +1,8 @@
 
-import os
 import pytest
-import sys
 
-thisfile = os.path.realpath(__file__)
-thisdir = os.path.dirname(thisfile)
-parent_dir = os.path.dirname(thisdir)
-new_path = [parent_dir]
-new_path.extend([d for d in sys.path if d != thisdir])
-sys.path = new_path
-
-
-from pdistcc.compiler.msvc import MSVCWrapper
-from pdistcc.compiler.errors import UnsupportedCompilationMode
+from ..compiler.msvc import MSVCWrapper
+from ..compiler.errors import UnsupportedCompilationMode
 
 
 class TestMSVCWrapper(object):
@@ -62,7 +52,7 @@ class TestMSVCWrapper(object):
         settings = {'msvc': {'use_clang': not native}}
         wrapper = MSVCWrapper(cmdline, settings)
         wrapper.can_handle_command()
-        preprocessor = wrapper.preprocessor_cmd()
+        wrapper.preprocessor_cmd()
         return wrapper
 
     def test_compiler_cmd_native(self):

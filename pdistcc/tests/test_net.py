@@ -1,18 +1,8 @@
 
 import io
-import os
 import pytest
-import sys
 
 from contextlib import contextmanager
-
-
-thisfile = os.path.realpath(__file__)
-thisdir = os.path.dirname(thisfile)
-parent_dir = os.path.dirname(thisdir)
-new_path = [parent_dir]
-new_path.extend([d for d in sys.path if d != thisdir])
-sys.path = new_path
 
 
 from pdistcc.net import (

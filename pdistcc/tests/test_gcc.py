@@ -1,19 +1,8 @@
 
-import os
 import pytest
-import sys
 
-
-thisfile = os.path.realpath(__file__)
-thisdir = os.path.dirname(thisfile)
-parent_dir = os.path.dirname(thisdir)
-new_path = [parent_dir]
-new_path.extend([d for d in sys.path if d != thisdir])
-sys.path = new_path
-
-
-from pdistcc.compiler.gcc import GCCWrapper
-from pdistcc.compiler.errors import UnsupportedCompilationMode
+from ..compiler.gcc import GCCWrapper
+from ..compiler.errors import UnsupportedCompilationMode
 
 
 class TestGCCWrapper(object):
