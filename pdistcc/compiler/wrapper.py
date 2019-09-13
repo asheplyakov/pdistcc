@@ -19,9 +19,10 @@ class CompilerWrapper(object):
             subprocess.check_output(preprocessor_cmd)
         except subprocess.CalledProcessError:
             raise PreprocessorFailed()
-
-        dcc_compile(self.preprocessed_file(),
-                    self.compiler_cmd(),
-                    host=host,
-                    port=port,
-                    ofile=self.object_file())
+        return dcc_compile(
+            self.preprocessed_file(),
+            self.compiler_cmd(),
+            host=host,
+            port=port,
+            ofile=self.object_file()
+        )

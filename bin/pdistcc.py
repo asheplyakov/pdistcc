@@ -16,4 +16,4 @@ if os.path.exists(pdistcc_pkg):
 
 if __name__ == '__main__':
     from pdistcc.cli import main
-    main()
+    sys.exit(main())

@@ -14,6 +14,7 @@ import pdistcc
 def test_wrapper(mocker):
     mocker.patch('subprocess.check_output')
     mocker.patch('pdistcc.compiler.wrapper.dcc_compile')
+    pdistcc.compiler.wrapper.dcc_compile.return_value = 0
     wrapper = CompilerWrapper('gcc -c -o foo.o foo.c'.split())
     setattr(wrapper, 'can_handle_command', MagicMock())
     wrapper.can_handle_command.return_value = None
@@ -27,7 +28,7 @@ def test_wrapper(mocker):
     wrapper.preprocessed_file.return_value = 'foo.i'
     host = '127.0.0.1'
     port = '3632'
-    wrapper.wrap_compiler(host, port)
+    assert wrapper.wrap_compiler(host, port) == 0
     pdistcc.compiler.wrapper.dcc_compile.assert_called_once_with(
         'foo.i',
         'gcc -c -o foo.o -x c foo.i'.split(),

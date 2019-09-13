@@ -167,4 +167,4 @@ def dcc_compile(doti, args, host='127.0.0.1', port=3632, ofile='a.out'):
         s.connect((host, port))
         dcc = DccClient(s, doti, ofile)
         dcc.request(args)
-        dcc.handle_response()
+        return dcc.handle_response()

@@ -44,7 +44,7 @@ def main():
 
     settings = _merge_settings_with_cli(client_settings(), args)
     distcc_hosts = [parse_distcc_host(h) for h in settings['distcc_hosts']]
-    wrap_compiler(distcc_hosts, args.compiler, settings)
+    return wrap_compiler(distcc_hosts, args.compiler, settings)
 
 
 def server_main():
