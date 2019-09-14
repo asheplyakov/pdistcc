@@ -1,10 +1,8 @@
 
-import os
 import socket
 import sys
 
-from contextlib import contextmanager
-
+from .fileops import FileOpsFactory
 
 DCC_TOKEN_HEADER_LEN = 12
 DCC_VERSION = 1
@@ -78,28 +76,6 @@ def chunked_send(sock, fobj, size, chunk_size=4096):
 
 def to_string(b):
     return b.decode('utf-8')
-
-
-class FileOpsFactory(object):
-    @contextmanager
-    def open(self, name, flags):
-        f = open(name, flags)
-        try:
-            yield f
-        finally:
-            f.close()
-
-    def size(self, f):
-        return os.stat(f.fileno()).st_size
-
-    def isfile(self, path):
-        return os.path.isfile(path)
-
-    def flush(self, f):
-        f.flush()
-
-    def close(self, f):
-        f.close()
 
 
 class DccClient(object):

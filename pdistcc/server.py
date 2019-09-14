@@ -7,8 +7,9 @@ import tempfile
 import socketserver
 import subprocess
 
+from .fileops import FileOpsFactory
+
 from .net import (
-    FileOpsFactory,
     ProtocolError,
     chunked_read_write,
     chunked_send,
