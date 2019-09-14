@@ -93,3 +93,38 @@ class TestMSVCWrapper(object):
         wrapper.can_handle_command()
         wrapper.set_preprocessed_file('foo.ii')
         assert wrapper.compiler_cmd() == 'cl.exe /c /Fofoo.obj /TP foo.ii'.split()
+
+
+def test_no_sources_xfail():
+    wrapper = MSVCWrapper('cl.exe /c /Fofoo.obj'.split())
+    with pytest.raises(UnsupportedCompilationMode):
+        wrapper.can_handle_command()
+
+
+def test_linking_xfail():
+    wrapper = MSVCWrapper('cl.exe foo.c'.split())
+    with pytest.raises(UnsupportedCompilationMode):
+        wrapper.can_handle_command()
+
+
+def test_response_file_xfail():
+    wrapper = MSVCWrapper('cl.exe /c /Fofoo.o foo.c @options.txt'.split())
+    with pytest.raises(UnsupportedCompilationMode):
+        wrapper.can_handle_command()
+
+
+def test_fd_without_debuginfo():
+    settings = {'msvc': {'use_clang': False}}
+    wrapper = MSVCWrapper('cl.exe /c /Fofoo.o foo.c /Fdfoo.pdb'.split(),
+                          settings=settings)
+    wrapper.can_handle_command()
+    preprocessor_cmd = wrapper.preprocessor_cmd()
+    assert preprocessor_cmd == 'cl.exe /P /Fifoo.i foo.c'.split()
+    assert wrapper.compiler_cmd() == 'cl.exe /c /Fofoo.o /TC foo.i'.split()
+
+
+def test_mp_xfail():
+    wrapper = MSVCWrapper('cl.exe /c /Fofoo.o foo.c /MP4'.split(),
+                          settings={'msvc': {'use_clang': False}})
+    with pytest.raises(UnsupportedCompilationMode):
+        wrapper.can_handle_command()
