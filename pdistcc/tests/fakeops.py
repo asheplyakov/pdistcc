@@ -31,6 +31,8 @@ class FakeFileOpsFactory(object):
         if isinstance(content, bytes):
             f = io.BytesIO(content)
             self._vfs[name] = f
+        elif isinstance(content, BaseException):
+            raise content
         else:
             f = content
         try:
@@ -84,6 +86,3 @@ class FakeTempFileFactory(object):
             yield obj
         finally:
             pass
-
-
-
