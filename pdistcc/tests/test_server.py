@@ -2,7 +2,10 @@
 import pytest
 import subprocess
 
-from unittest.mock import MagicMock
+from unittest.mock import (
+    MagicMock,
+    call
+)
 
 from .fakeops import (
     FakeFileOpsFactory,
@@ -49,7 +52,7 @@ def test_distccd_normal(client_request):
     mock_popen.return_value.returncode = 0
 
     # simulate the compiler output
-    fileops = FakeFileOpsFactory({'foo_1.o': b'FAKE'})
+    fileops = FakeFileOpsFactory({'foo_1.o': b'FAKE', 'foo_0.ii': b''})
 
     # temporary files
     faketempfile = FakeTempFileFactory(['foo_0.ii', 'foo_1.o'])
@@ -72,6 +75,11 @@ def test_distccd_normal(client_request):
         b'SOUT', b'00000004', b'SOUT',
         b'DOTO', b'00000004', b'FAKE',
     ])
+    # has temporary files been cleaned up?
+    fileops.remove.assert_has_calls(
+        [call('foo_1.o'), call('foo_0.ii')],
+        any_order=True
+    )
 
 
 def test_distccd_compilation_silent_failure(client_request):

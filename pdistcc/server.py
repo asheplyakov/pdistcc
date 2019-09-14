@@ -125,8 +125,8 @@ class Distccd(socketserver.BaseRequestHandler):
             pass
         finally:
             for p in cleanup_files:
-                if os.path.isfile(p):
-                    os.remove(p)
+                if self._fileops.isfile(p):
+                    self._fileops.remove(p)
 
 
 def daemon(settings, host='127.0.0.1', port=3632):

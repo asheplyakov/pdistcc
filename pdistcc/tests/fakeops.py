@@ -2,6 +2,7 @@
 import io
 
 from contextlib import contextmanager
+from unittest.mock import MagicMock
 
 
 class FakeSocket(object):
@@ -24,6 +25,7 @@ class FakeSocket(object):
 class FakeFileOpsFactory(object):
     def __init__(self, vfs={}):
         self._vfs = vfs
+        self.remove = MagicMock()
 
     @contextmanager
     def open(self, name, flags):
