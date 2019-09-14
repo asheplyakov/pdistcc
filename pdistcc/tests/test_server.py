@@ -1,4 +1,5 @@
 
+import pytest
 import subprocess
 
 from unittest.mock import MagicMock
@@ -9,23 +10,35 @@ from .fakeops import (
     FakeTempFileFactory,
 )
 
+from ..net import (
+    dcc_encode,
+)
+
 from ..server import (
     Distccd
 )
 
 
-def test_distccd_normal():
+@pytest.fixture
+def client_request():
+    def _make_request(source):
+        return b''.join([
+            b'DIST', b'00000001',
+            b'ARGC', b'00000005',
+            b'ARGV', b'00000003', b'gcc',
+            b'ARGV', b'00000002', b'-c',
+            b'ARGV', b'00000002', b'-o',
+            b'ARGV', b'00000005', b'foo.o',
+            b'ARGV', b'00000005', b'foo.c',
+            dcc_encode('DOTI', len(source)), source,
+        ])
+    return _make_request
+
+
+def test_distccd_normal(client_request):
     source = b'int f(int x,int y){return x+y;}'
-    job = b''.join([
-        b'DIST', b'00000001',
-        b'ARGC', b'00000005',
-        b'ARGV', b'00000003', b'gcc',
-        b'ARGV', b'00000002', b'-c',
-        b'ARGV', b'00000002', b'-o',
-        b'ARGV', b'00000005', b'foo.o',
-        b'ARGV', b'00000005', b'foo.c'
-        b'DOTI', b'0000001f', source,
-    ])
+    job = client_request(source)
+
     # network communication
     sock = FakeSocket(job)
 
