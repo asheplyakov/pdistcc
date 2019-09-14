@@ -1,2 +1,6 @@
 **/__pycache__/*
 .*.sw[opn]
+.ropeproject/*
+coverage_html/*
+.cache/*
+.coverage
