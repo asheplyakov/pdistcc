@@ -67,3 +67,21 @@ class TestGCCWrapper(object):
         wrapper.set_preprocessed_file('foo.ii')
         assert wrapper.preprocessed_file() == 'foo.ii'
         assert wrapper.compiler_cmd() == 'g++ -c -o foo.o -x c++ foo.ii'.split()
+
+
+def test_linking_xfail():
+    wrapper = GCCWrapper('gcc foo.c'.split())
+    with pytest.raises(UnsupportedCompilationMode):
+        wrapper.can_handle_command()
+
+
+def test_no_object_files_xfail():
+    wrapper = GCCWrapper('gcc -c foo.c'.split())
+    with pytest.raises(UnsupportedCompilationMode):
+        wrapper.can_handle_command()
+
+
+def test_no_sources_xfail():
+    wrapper = GCCWrapper('gcc -c -o foo.o'.split())
+    with pytest.raises(UnsupportedCompilationMode):
+        wrapper.can_handle_command()
