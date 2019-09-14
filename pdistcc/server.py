@@ -9,11 +9,12 @@ import subprocess
 
 from .net import (
     FileOpsFactory,
-    InvalidToken,
+    ProtocolError,
     chunked_read_write,
     chunked_send,
     dcc_encode,
-    read_field,
+    read_token,
+    recv_exactly,
     to_string,
 )
 
@@ -38,27 +39,21 @@ class Distccd(socketserver.BaseRequestHandler):
     def _read_compiler_cmd(self, argc):
         compiler_cmd = []
         for n in range(argc):
-            argv, tlen, arg = read_field(self.request)
-            if argv != b'ARGV':
-                raise InvalidToken("expected ARGV, got {}", to_string(argv))
+            _, size = read_token(self.request, b'ARGV')
+            arg = recv_exactly(self.request, size)
             compiler_cmd.append(to_string(arg))
         logger.debug('orig compiler cmd: %s', ' '.join(compiler_cmd))
         return compiler_cmd
 
     def _read_request(self):
-        hello, tlen, _ = read_field(self.request, False)
-        if hello != b'DIST':
-            raise InvalidToken("client hasn't sent a valid greeting")
-        argc_name, argc, _ = read_field(self.request, False)
-        if argc_name != b'ARGC':
-            raise InvalidToken("expected ARGC, got {}", to_string(argc_name))
-        compiler_cmd = self._read_compiler_cmd(argc)
-        return compiler_cmd
+        _, ver = read_token(self.request, b'DIST')
+        if ver != DCC_PROTOCOL:
+            raise ProtocolError("unsupported version of protocol %d" % ver)
+        _, argc = read_token(self.request, b'ARGC')
+        return self._read_compiler_cmd(argc)
 
     def _read_doti(self):
-        name, doti_bytes, _ = read_field(self.request, False)
-        if name != b'DOTI':
-            raise InvalidToken("expected DOTI, got {}", to_string(name))
+        _, doti_bytes = read_token(self.request, b'DOTI')
         logger.debug('reading doti file')
         with self._tempfile(suffix='.ii', delete=False) as doti:
             path = doti.name

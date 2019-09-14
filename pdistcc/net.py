@@ -49,15 +49,6 @@ def recv_exactly(s, count):
     return data
 
 
-def read_field(s, with_data=True):
-    data = recv_exactly(s, DCC_TOKEN_HEADER_LEN)
-    name, tlen = dcc_decode(data)
-    val = b''
-    if with_data and tlen > 0:
-        val = recv_exactly(s, tlen)
-    return name, tlen, val
-
-
 def read_token(sock, expected=None):
     data = recv_exactly(sock, DCC_TOKEN_HEADER_LEN)
     name, size = dcc_decode(data)
