@@ -8,9 +8,11 @@ from contextlib import contextmanager
 from pdistcc.net import (
     DccClient,
     InvalidToken,
+    ProtocolError,
     chunked_read_write,
     dcc_decode,
     dcc_encode,
+    read_token,
 )
 
 
@@ -93,6 +95,18 @@ def test_chunked_read_write_large():
     assert fobj.getvalue() == b'a' * size
 
 
+def test_read_token_short_xfail():
+    sock = FakeSocket(b'DIST0')
+    with pytest.raises(ProtocolError):
+        read_token(sock, b'DIST')
+
+
+def test_read_token_unexpected_xfail():
+    sock = FakeSocket(b'DIST00000001')
+    with pytest.raises(InvalidToken):
+        read_token(sock, b'ARGC')
+
+
 def test_dcc_reply_success():
     stdout = io.BytesIO(b'')
     stderr = io.BytesIO(b'')
@@ -119,6 +133,18 @@ def test_dcc_reply_success():
     ret = dcc.handle_response()
     assert ret == 0
     assert fileFactory._vfs['dot.o'].getvalue() == fakeobj
+
+
+def test_dcc_unsupported_protocol_version_xfail():
+    sock = FakeSocket(b'DONE00000002')
+    dcc = DccClient(sock,
+                    'hello.ii',
+                    'dot.o',
+                    stdout=io.BytesIO(),
+                    stderr=io.BytesIO(),
+                    fileops=FakeFileOpsFactory())
+    with pytest.raises(ProtocolError):
+        dcc.handle_response()
 
 
 def test_dcc_request1():
