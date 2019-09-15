@@ -1,50 +1,45 @@
 #!/usr/bin/env python3
 
 import argparse
-import os
-import re
 
 from .config import (
-     DISTCCD_PORT,
-     server_settings,
-     client_settings,
+    client_settings,
+    parse_distcc_host,
+    server_settings,
 )
 from .compiler import wrap_compiler
 from .server import daemon
 
 
-def parse_distcc_host(h):
-    rx = re.compile('^([^:/]+):([0-9]+)/([0-9]+)')
-    m = rx.match(h)
-    if m is None:
-        raise ValueError('invalid host spec: %s' % h)
-    host, port, weight = m.groups()
-    return {
-        'host': host,
-        'port': int(port),
-        'weight': int(weight),
-    }
-
-
-def _merge_settings_with_cli(settings, args):
+def merge_settings_with_cli(settings, args):
     merged_settings = {}
     for k in settings.keys():
         cli_val = getattr(args, k) if hasattr(args, k) else None
         merged_settings[k] = cli_val or settings[k]
+    for k in dir(args):
+        if k.startswith('_'):
+            continue
+        elif k == 'compiler':
+            continue
+        cli_val = getattr(args, k)
+        merged_settings[k] = cli_val or settings.get(k)
     return merged_settings
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--host', dest='distcc_hosts', action='append',
-                        nargs='*', help='where to compile')
+                        nargs=1, help='where to compile')
     parser.add_argument("compiler", nargs='*', help="compiler and arguments")
     args, unknown = parser.parse_known_args()
     args.compiler.extend(unknown)
+    if args.distcc_hosts:
+        # [['localhost'], ['anotherhost']]
+        distcc_hosts = [parse_distcc_host(h[0]) for h in args.distcc_hosts]
+        args.distcc_hosts = distcc_hosts
 
-    settings = _merge_settings_with_cli(client_settings(), args)
-    distcc_hosts = [parse_distcc_host(h) for h in settings['distcc_hosts']]
-    return wrap_compiler(distcc_hosts, args.compiler, settings)
+    settings = merge_settings_with_cli(client_settings(), args)
+    return wrap_compiler(settings['distcc_hosts'], args.compiler, settings)
 
 
 def server_main():
@@ -52,7 +47,7 @@ def server_main():
     parser.add_argument('--host', help='IP to bind to')
     parser.add_argument('--port', type=int, help='port to listen at')
     args = parser.parse_args()
-    settings = _merge_settings_with_cli(server_settings(), args)
+    settings = merge_settings_with_cli(server_settings(), args)
     daemon(settings,
            host=settings['host'],
            port=settings['port'])

@@ -2,10 +2,24 @@
 import copy
 import json
 import logging
+import re
 import os
 
 
 DISTCCD_PORT = 3632
+
+
+def parse_distcc_host(h):
+    rx = re.compile('^([^:/]+):([0-9]+)/([0-9]+)')
+    m = rx.match(h)
+    if m is None:
+        raise ValueError('invalid host spec: %s' % h)
+    host, port, weight = m.groups()
+    return {
+        'host': host,
+        'port': int(port),
+        'weight': int(weight),
+    }
 
 
 def _find_config(name):
@@ -76,4 +90,6 @@ def client_settings():
     settings = _settings('client.json', _client_settings())
     if 'DISTCC_HOSTS' in os.environ:
         settings['distcc_hosts'] = os.environ['DISTCC_HOSTS'].split()
+    distcc_hosts = [parse_distcc_host(h) for h in settings['distcc_hosts']]
+    settings['distcc_hosts'] = distcc_hosts
     return settings

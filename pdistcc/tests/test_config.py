@@ -6,8 +6,21 @@ from pytest_mock import mocker
 
 from ..config import (
     client_settings,
+    parse_distcc_host,
     server_settings,
 )
+
+
+def test_parse_distcc_host():
+    host = parse_distcc_host('127.0.0.1:3632/123')
+    assert host['host'] == '127.0.0.1'
+    assert host['port'] == 3632
+    assert host['weight'] == 123
+
+
+def test_parse_distcc_host_xfail():
+    with pytest.raises(ValueError):
+        parse_distcc_host('abracadabra;')
 
 
 def test_server_settings(mocker):
@@ -35,4 +48,6 @@ def test_client_settings(mocker):
     settings = client_settings()
     os.path.expanduser.assert_called_once_with('~/.config/pdistcc')
     os.path.isfile.assert_called_once_with(confpath)
-    assert settings['distcc_hosts'] == ['example.com:1234/10']
+    assert settings['distcc_hosts'] == [
+        {'host': 'example.com', 'port': 1234, 'weight': 10},
+    ]
