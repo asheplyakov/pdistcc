@@ -23,8 +23,9 @@ class FakeSocket(object):
 
 
 class FakeFileOpsFactory(object):
-    def __init__(self, vfs={}):
+    def __init__(self, vfs={}, close=True):
         self._vfs = vfs
+        self._close = close
         self.remove = MagicMock()
 
     @contextmanager
@@ -40,7 +41,8 @@ class FakeFileOpsFactory(object):
         try:
             yield f
         finally:
-            f.close()
+            if self._close:
+                f.close()
 
     def isfile(self, path):
         return path in self._vfs

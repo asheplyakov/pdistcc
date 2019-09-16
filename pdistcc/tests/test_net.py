@@ -5,7 +5,12 @@ import pytest
 from contextlib import contextmanager
 
 
-from pdistcc.net import (
+from .fakeops import (
+    FakeFileOpsFactory,
+    FakeSocket,
+)
+
+from ..net import (
     DccClient,
     InvalidToken,
     ProtocolError,
@@ -14,46 +19,6 @@ from pdistcc.net import (
     dcc_encode,
     read_token,
 )
-
-
-class FakeFileOpsFactory(object):
-    def __init__(self, vfs={}):
-        self._vfs = vfs
-
-    @contextmanager
-    def open(self, name, flags):
-        f = io.BytesIO(self._vfs.get(name, b''))
-        self._vfs[name] = f
-        try:
-            yield f
-        finally:
-            pass
-
-    def size(self, f):
-        return len(f.getvalue())
-
-    def flush(self, f):
-        pass
-
-    def close(self, f):
-        f.close()
-
-
-class FakeSocket(io.BytesIO):
-    def __init__(self, initial=b''):
-        super().__init__(initial)
-
-    def send(self, what):
-        return self.write(what)
-
-    def sendall(self, what):
-        size = len(what)
-        sent = 0
-        while sent < size:
-            sent += self.write(what[sent:])
-
-    def recv(self, size):
-        return self.read(size)
 
 
 def test_dcc_encode():
@@ -121,9 +86,7 @@ def test_dcc_reply_success():
         dcc_encode('DOTO', len(fakeobj)),
         fakeobj,
     ]))
-    fileFactory = FakeFileOpsFactory({
-        'dot.o': b'',
-    })
+    fileFactory = FakeFileOpsFactory({'dot.o': b'',}, close=False)
     dcc = DccClient(sock,
                     'hello.ii',
                     'dot.o',
@@ -166,7 +129,7 @@ def test_dcc_request1():
                     fileops=fileFactory)
     cmd = 'g++ -c -o {} -x c++ {}'.format(doto, doti).split()
     dcc.request(cmd)
-    assert sock.getvalue() == b''.join([
+    assert sock._write.getvalue() == b''.join([
         b'DIST00000001',
         b'ARGC00000007',
         b'ARGV00000003' + b'g++',
