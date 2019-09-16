@@ -85,3 +85,15 @@ def test_no_sources_xfail():
     wrapper = GCCWrapper('gcc -c -o foo.o'.split())
     with pytest.raises(UnsupportedCompilationMode):
         wrapper.can_handle_command()
+
+
+def test_compiler_dir():
+    settings = {
+        'gcc': {
+            'compiler_dir': '/opt/rh/bin',
+        },
+    }
+    wrapper = GCCWrapper('gcc -c -o foo.o foo.c'.split(), settings=settings)
+    wrapper.can_handle_command()
+    assert wrapper.preprocessor_cmd() == '/opt/rh/bin/gcc -E -o foo.i foo.c'.split()
+    assert wrapper.compiler_cmd() == '/opt/rh/bin/gcc -c -o foo.o -x c foo.i'.split()
