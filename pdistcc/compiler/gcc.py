@@ -1,4 +1,5 @@
 
+import copy
 import os
 
 from .wrapper import CompilerWrapper
@@ -8,6 +9,8 @@ LANG_C = 'c'
 LANG_CXX = 'c++'
 
 COMPILER_DIR = 'compiler_dir'
+FORCE_COMPILER = 'force_compiler'
+EXTRA_COMPILER_FLAGS = 'extra_compiler_flags'
 
 
 class GCCWrapper(CompilerWrapper):
@@ -25,6 +28,12 @@ class GCCWrapper(CompilerWrapper):
         if COMPILER_DIR in cfg:
             compiler = os.path.basename(self._compiler)
             self._compiler = os.path.join(cfg[COMPILER_DIR], compiler)
+        if cfg.get(FORCE_COMPILER, False):
+            self._compiler = cfg[FORCE_COMPILER]
+        if cfg.get(EXTRA_COMPILER_FLAGS, []):
+            args = copy.deepcopy(cfg[EXTRA_COMPILER_FLAGS])
+            args.extend(self._args)
+            self._args = args
 
     def _is_source_file(self, arg):
         fileext = arg.split('.')[-1].lower()

@@ -97,3 +97,27 @@ def test_compiler_dir():
     wrapper.can_handle_command()
     assert wrapper.preprocessor_cmd() == '/opt/rh/bin/gcc -E -o foo.i foo.c'.split()
     assert wrapper.compiler_cmd() == '/opt/rh/bin/gcc -c -o foo.o -x c foo.i'.split()
+
+
+def test_force_compiler():
+    settings = {
+        'gcc': {
+            'force_compiler': '/usr/local/bin/bark',
+        },
+    }
+    wrapper = GCCWrapper('gcc -c -o foo.o foo.c'.split(), settings=settings)
+    wrapper.can_handle_command()
+    assert wrapper.preprocessor_cmd() == '/usr/local/bin/bark -E -o foo.i foo.c'.split()
+    assert wrapper.compiler_cmd() == '/usr/local/bin/bark -c -o foo.o -x c foo.i'.split()
+
+
+def test_extra_compiler_flags():
+    settings = {
+        'gcc': {
+            'extra_compiler_flags': ['--target=x86_64-linux-gnu'],
+        }
+    }
+    wrapper = GCCWrapper('gcc -c -o foo.o foo.c'.split(), settings=settings)
+    wrapper.can_handle_command()
+    assert wrapper.preprocessor_cmd() == 'gcc --target=x86_64-linux-gnu -E -o foo.i foo.c'.split()
+    assert wrapper.compiler_cmd() == 'gcc --target=x86_64-linux-gnu -c -o foo.o -x c foo.i'.split()
