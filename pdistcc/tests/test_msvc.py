@@ -128,3 +128,17 @@ def test_mp_xfail():
                           settings={'msvc': {'use_clang': False}})
     with pytest.raises(UnsupportedCompilationMode):
         wrapper.can_handle_command()
+
+
+def test_use_clang():
+    cmdline = 'cl.exe /c /Fofoo.obj foo.cpp'.split()
+    settings = {
+        'msvc': {
+            'clang_path': 'D:/bin/clang-cl.exe',
+            'use_clang': True,
+        }
+    }
+    wrapper = MSVCWrapper(cmdline, settings=settings)
+    wrapper.can_handle_command()
+    assert wrapper.preprocessor_cmd() == 'cl.exe /P /Fifoo.i foo.cpp'.split()
+    assert wrapper.compiler_cmd() == 'D:/bin/clang-cl.exe /c /Fofoo.obj /TP foo.i'.split()
