@@ -104,13 +104,6 @@ class GCCWrapper(CompilerWrapper):
                 cmd.append(arg)
         return cmd
 
-    def set_source_file(self, srcfile):
-        if srcfile == self._srcfile:
-            return
-        args = [a if a != self._srcfile else srcfile for a in self._args]
-        self._args = args
-        self._srcfile = srcfile
-
     def set_object_file(self, objfile):
         if objfile == self._objfile:
             return

@@ -31,19 +31,9 @@ class MSVCWrapper(CompilerWrapper):
     def use_clang(self):
         return self._use_clang
 
-    @clang_path.setter
-    def clang_path(self, value):
-        self._clang_path = value
-        if value:
-            self._use_clang = True
-
     @property
     def distcc_compat(self):
         return self._distcc_compat
-
-    @distcc_compat.setter
-    def distcc_compat(self, val):
-        self._distcc_compat = val
 
     def _is_source_file(self, path):
         ext = path.split('.')[-1].lower()
@@ -152,10 +142,3 @@ class MSVCWrapper(CompilerWrapper):
 
     def source_file(self):
         return self._srcfile
-
-    def set_source_file(self, srcfile):
-        if srcfile == self._srcfile:
-            return
-        new_args = [a if a != self._srcfile else srcfile for a in self._args]
-        self._args = new_args
-        self._srcfile = srcfile
