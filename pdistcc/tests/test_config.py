@@ -3,6 +3,7 @@ import pytest
 import os
 
 from pytest_mock import mocker
+from unittest.mock import mock_open
 
 from ..config import (
     client_settings,
@@ -51,3 +52,56 @@ def test_client_settings(mocker):
     assert settings['distcc_hosts'] == [
         {'host': 'example.com', 'port': 1234, 'weight': 10},
     ]
+
+
+def test_config_PDISTCC_DIR(mocker):
+    here = os.path.dirname(os.path.abspath(__file__))
+    confpath = os.path.join(here, 'client.json')
+    environ = {
+        'PDISTCC_DIR': here,
+        'USER': 'none',
+        'LOGNAME': 'none',
+        'HOME': '/',
+    }
+    mocker.patch('os.environ', environ)
+    mocker.patch('os.path.expanduser')
+    mocker.patch('os.path.isfile')
+    os.path.isfile.return_value = True
+    settings = client_settings()
+    assert settings['distcc_hosts'] == [
+        {'host': 'example.com', 'port': 1234, 'weight': 10},
+    ]
+    os.path.isfile.assert_called_once_with(confpath)
+    os.path.expanduser.assert_called_once_with('~/.config/pdistcc')
+
+
+def test_config_client_DISTCC_HOSTS(mocker):
+    here = os.path.dirname(os.path.abspath(__file__))
+    confpath = os.path.join(here, 'client.json')
+    environ = {
+        'DISTCC_HOSTS': 'localhost:1111/50'
+    }
+    mocker.patch('os.environ', environ)
+    mocker.patch('os.path.expanduser')
+    os.path.expanduser.return_value = here
+    mocker.patch('os.path.isfile')
+    os.path.isfile.return_value = True
+    settings = client_settings()
+    assert settings['distcc_hosts'] == [
+        {'host': 'localhost', 'port': 1111, 'weight': 50},
+    ]
+    os.path.isfile.assert_called_once_with(confpath)
+    os.path.expanduser.assert_called_once_with('~/.config/pdistcc')
+
+
+def test_broken_config(mocker):
+    m_open = mock_open(read_data='{ "BROKEN": ')
+    mocker.patch('pdistcc.config.open', m_open)
+    mocker.patch('os.path.expanduser')
+    os.path.expanduser.return_value = '/'
+    mocker.patch('os.path.isfile')
+    os.path.isfile.return_value = True
+    settings = client_settings()
+    os.path.isfile.assert_called_once_with('/client.json')
+    os.path.expanduser.assert_called_once_with('~/.config/pdistcc')
+    m_open.assert_called_once_with('/client.json', 'r')
