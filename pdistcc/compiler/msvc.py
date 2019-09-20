@@ -105,11 +105,11 @@ class MSVCWrapper(CompilerWrapper):
         return LANG_C if srcext in ('c', 'i') else LANG_CXX
 
     def compiler_cmd(self):
-        cmd = [self._compiler if not self._use_clang else self._clang_path]
+        cmd = [self._compiler if not self.use_clang else self.clang_path]
         for arg in self._args:
             if arg == '/c':
                 # XXX: distcc
-                cmd.append('-c' if self._distcc_compat else '/c')
+                cmd.append('-c' if self.distcc_compat else '/c')
             elif self.is_preprocessor_flag(arg):
                 continue
             elif arg == self._srcfile:
