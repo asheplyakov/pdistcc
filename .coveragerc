@@ -2,3 +2,4 @@
 source = pdistcc
 omit =
     pdistcc/tests/*
+    pdistcc/fileops.py
