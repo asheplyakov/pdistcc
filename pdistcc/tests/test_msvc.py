@@ -142,3 +142,19 @@ def test_use_clang():
     wrapper.can_handle_command()
     assert wrapper.preprocessor_cmd() == 'cl.exe /P /Fifoo.i foo.cpp'.split()
     assert wrapper.compiler_cmd() == 'D:/bin/clang-cl.exe /c /Fofoo.obj /TP foo.i'.split()
+
+
+def test_distcc_compat():
+    cmdline = 'cl.exe /c /Fofoo.obj foo.cpp'.split()
+    settings = {
+        'msvc': {
+            'clang_path': '/usr/bin/clang-cl',
+            'use_clang': True,
+            'distcc_compat': True,
+        },
+    }
+    wrapper = MSVCWrapper(cmdline, settings=settings)
+    wrapper.can_handle_command()
+    assert wrapper.preprocessor_cmd() == 'cl.exe /P /Fifoo.i foo.cpp'.split()
+    # Note: no /Fofoo.obj in distcc compatibility mode
+    assert wrapper.compiler_cmd() == '/usr/bin/clang-cl -c /TP foo.i'.split()

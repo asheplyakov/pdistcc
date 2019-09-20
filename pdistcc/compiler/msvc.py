@@ -112,6 +112,14 @@ class MSVCWrapper(CompilerWrapper):
                 # Yet some tools (CMake's Ninja generator) specify various PDB
                 # related flags even if no PDB is being generated. Skip them.
                 continue
+            elif self.distcc_compat and arg.startswith('/Fo'):
+                # distcc does not understand '/Fo' and will add
+                # -o `/tmp/distcc_something.o` anyway. clang-cl handles `-o`
+                # just fine. However distcc passes `/Fo` switch as is, and
+                # it might confuse clang-cl (where to write the output: either
+                # to `-o some.o` or to the `/Fosome.obj`?).
+                # Therefore skip `/Fo` in distcc compatibility mode
+                continue
             else:
                 cmd.append(arg)
         return cmd
