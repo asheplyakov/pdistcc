@@ -8,6 +8,7 @@ from pytest_mock import mocker
 
 from ..cli import (
     main,
+    server_main,
 )
 
 
@@ -48,4 +49,21 @@ def test_pdistcc_main_explicit_host(mocker):
         distcc_hosts,
         'gcc -c -o foo.o foo.c'.split(),
         {'distcc_hosts': distcc_hosts},
+    )
+
+
+def test_pdistcc_daemon(mocker):
+    args = ['pdistccd.py']
+    mocker.patch('sys.argv', args)
+    mocker.patch('pdistcc.cli.server_settings')
+    pdistcc.cli.server_settings.return_value = {
+        'host': 'localhost',
+        'port': 11111,
+    }
+    mocker.patch('pdistcc.cli.daemon')
+    assert server_main() is None
+    pdistcc.cli.daemon.assert_called_once_with(
+        {'host': 'localhost', 'port': 11111},
+        host='localhost',
+        port=11111
     )
