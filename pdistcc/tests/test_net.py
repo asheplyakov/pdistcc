@@ -98,6 +98,46 @@ def test_dcc_reply_success():
     assert fileFactory._vfs['dot.o'].getvalue() == fakeobj
 
 
+def test_dcc_compilation_failed():
+    stdout = io.BytesIO(b'')
+    stderr = io.BytesIO(b'')
+    sock = FakeSocket(b''.join([
+        dcc_encode('DONE', 1),
+        dcc_encode('STAT', 1),
+        dcc_encode('SERR', len(b'error')),
+        b'error',
+        dcc_encode('SOUT', len(b'text')),
+        b'text',
+    ]))
+    fileFactory = FakeFileOpsFactory({}, close=False)
+    dcc = DccClient(sock,
+                    'hello.ii',
+                    'dot.o',
+                    stdout=stdout,
+                    stderr=stderr,
+                    fileops=fileFactory)
+    ret = dcc.handle_response()
+    assert ret == 1
+    assert 'dot.o' not in fileFactory._vfs
+    assert stdout.getvalue() == b'text'
+    assert stderr.getvalue() == b'error'
+
+
+def test_dcc_junk():
+    sock = FakeSocket(b''.join([
+        dcc_encode('BARF', 123),
+        b'XY',
+    ]))
+    dcc = DccClient(sock,
+                    'hello.ii',
+                    'hello.o',
+                    stdout=io.BytesIO(),
+                    stderr=io.BytesIO(),
+                    fileops=FakeFileOpsFactory())
+    with pytest.raises(InvalidToken):
+        ret = dcc.handle_response()
+
+
 def test_dcc_unsupported_protocol_version_xfail():
     sock = FakeSocket(b'DONE00000002')
     dcc = DccClient(sock,
