@@ -113,10 +113,7 @@ class GCCWrapper(CompilerWrapper):
 
     def object_file(self):
         if self._objfile is None:
-            for n, arg in enumerate(self._args):
-                if arg == '-o' and n + 1 < len(self._args):
-                    self._objfile = self._args[n + 1]
-                    break
+            self.can_handle_command()
         return self._objfile
 
     def preprocessed_file(self):
@@ -125,16 +122,13 @@ class GCCWrapper(CompilerWrapper):
     def set_preprocessed_file(self, path):
         self._preprocessed_file = path
 
-    def source_file(self):
-        return self._srcfile
-
     def compiler_cmd(self):
         cmd = [self._compiler]
         skip, skip_next = False, False
         for arg in self._args:
             if skip_next:
-               skip_next = False
-               continue
+                skip_next = False
+                continue
             skip, skip_next = self.is_preprocessor_flag(arg)
             if skip:
                 continue
@@ -156,4 +150,3 @@ class GCCWrapper(CompilerWrapper):
             return True, True
         else:
             return False, False
-
