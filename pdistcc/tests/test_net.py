@@ -1,6 +1,9 @@
 
 import io
 import pytest
+import socket
+
+from pytest_mock import mocker
 
 
 from .fakeops import (
@@ -13,6 +16,7 @@ from ..net import (
     InvalidToken,
     ProtocolError,
     chunked_read_write,
+    dcc_compile,
     dcc_decode,
     dcc_encode,
     read_token,
@@ -180,3 +184,26 @@ def test_dcc_request1():
         dcc_encode('DOTI', len(source)),
         source,
     ])
+
+
+def test_dcc_compile(mocker):
+    fakeSocket = mocker.MagicMock()
+    mocker.patch('socket.socket')
+    socket.socket.return_value.__enter__.return_value = fakeSocket
+    dccMock = mocker.MagicMock()
+    mocker.patch('pdistcc.net.DccClient', dccMock)
+    dccMock.return_value.handle_response.return_value = 0
+    ret = dcc_compile('foo.i',
+                      'gcc -c -o foo.o -c foo.c'.split(),
+                      host='localhost',
+                      port=11111,
+                      ofile='foo.o')
+    fakeSocket.connect.assert_called_once_with(('localhost', 11111))
+    dccMock.assert_called_once_with(fakeSocket,
+                                    'foo.i',
+                                    'foo.o')
+    dccMock.return_value.request.assert_called_once_with(
+        'gcc -c -o foo.o -c foo.c'.split()
+    )
+    dccMock.return_value.handle_response.assert_called_once_with()
+    assert ret == 0
