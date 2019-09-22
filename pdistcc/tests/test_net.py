@@ -2,8 +2,6 @@
 import io
 import pytest
 
-from contextlib import contextmanager
-
 
 from .fakeops import (
     FakeFileOpsFactory,
@@ -86,7 +84,7 @@ def test_dcc_reply_success():
         dcc_encode('DOTO', len(fakeobj)),
         fakeobj,
     ]))
-    fileFactory = FakeFileOpsFactory({'dot.o': b'',}, close=False)
+    fileFactory = FakeFileOpsFactory({'dot.o': b''}, close=False)
     dcc = DccClient(sock,
                     'hello.ii',
                     'dot.o',
@@ -135,7 +133,7 @@ def test_dcc_junk():
                     stderr=io.BytesIO(),
                     fileops=FakeFileOpsFactory())
     with pytest.raises(InvalidToken):
-        ret = dcc.handle_response()
+        dcc.handle_response()
 
 
 def test_dcc_unsupported_protocol_version_xfail():
