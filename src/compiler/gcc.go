@@ -1,6 +1,9 @@
 package gcc
 
-import "strings"
+import (
+	"path/filepath"
+	"strings"
+)
 
 type UnsupportedCompilationMode struct {
 	msg string
@@ -54,6 +57,52 @@ func (gcc *GccWrapper) CanHandleCommand(args []string) (err error) {
 		gcc.args = args
 	}
 	return err
+}
+
+func (gcc *GccWrapper) lang() string {
+	ret := "c++"
+	suffix := strings.ToLower(filepath.Ext(gcc.srcfile))
+	if suffix == ".c" || suffix == ".i" {
+		ret = "c"
+	}
+	return ret
+}
+
+func fileNameWithoutExtension(path string) string {
+	return strings.TrimSuffix(path, filepath.Ext(path))
+}
+
+func (gcc *GccWrapper) preprocessed_filename(objfile string) string {
+	doti_suffix := "ii"
+	if gcc.lang() == "c" {
+		doti_suffix = "i"
+	}
+	return fileNameWithoutExtension(objfile) + "." + doti_suffix
+}
+
+func (gcc *GccWrapper) PreprocessorCmd() ([]string, error) {
+	var cmd []string
+	cmd = append(cmd, gcc.compiler)
+	next_arg_is_object := false
+	for _, arg := range gcc.args[1:] {
+		skip_arg := false
+		if "-c" == arg {
+			cmd = append(cmd, "-E")
+			skip_arg = true
+		} else if next_arg_is_object {
+			gcc.objfile = arg
+			gcc.preprocessed_file = gcc.preprocessed_filename(arg)
+			cmd = append(cmd, gcc.preprocessed_file)
+			next_arg_is_object = false
+			skip_arg = true
+		} else if "-o" == arg {
+			next_arg_is_object = true
+		}
+		if !skip_arg {
+			cmd = append(cmd, arg)
+		}
+	}
+	return cmd, nil
 }
 
 func (gcc *GccWrapper) is_source_file(path string) bool {
