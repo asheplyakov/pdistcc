@@ -61,3 +61,14 @@ func TestReadToken(t *testing.T) {
 	}
 }
 
+func TestReadTokenTo(t *testing.T) {
+	var sink bytes.Buffer
+	payload := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	sock := bytes.NewBuffer([]byte("DOTO" + "0000001f" + payload))
+	if err := readTokenTo(sock, "DOTO", &sink); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if sink.String() != payload {
+		t.Errorf("wrong payload:\nexpected: %s\nactual:   %s", payload, sink.String())
+	}
+}

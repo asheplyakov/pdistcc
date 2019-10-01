@@ -125,3 +125,18 @@ func (c *DccClient) Request(args []string) (err error) {
 	}
 	return
 }
+
+func readTokenTo(sock io.Reader, name string, w io.Writer) (err error) {
+	var (
+		size int
+	)
+	if size, err = readToken(sock, name); err != nil {
+		err = fmt.Errorf("haven't got a valid %s token: %v", name, err)
+		return
+	}
+	if _, err = io.CopyN(w, sock, int64(size)); err != nil {
+		err = fmt.Errorf("Failed to receive %s: error: %v", name, err)
+		return
+	}
+	return
+}
