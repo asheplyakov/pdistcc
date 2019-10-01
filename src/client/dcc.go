@@ -140,3 +140,33 @@ func readTokenTo(sock io.Reader, name string, w io.Writer) (err error) {
 	}
 	return
 }
+
+func (c *DccClient) HandleResponse() (status int, err error) {
+	var (
+		version int
+	)
+	if version, err = readToken(c.rsock, "DONE"); err != nil {
+		err = fmt.Errorf("haven't got a valid distcc greeting: %v", err)
+		return
+	}
+	if version != c.version {
+		err = fmt.Errorf("Unsupported protocol version: %d", version)
+		return
+	}
+	if status, err = readToken(c.rsock, "STAT"); err != nil {
+		err = fmt.Errorf("haven't got a valid STAT: %v", err)
+		return
+	}
+	if err = readTokenTo(c.rsock, "SERR", c.stderr); err != nil {
+		return
+	}
+	if err = readTokenTo(c.rsock, "SOUT", c.stdout); err != nil {
+		return
+	}
+	if status == 0 {
+		if err = readTokenTo(c.rsock, "DOTO", c.ofile); err != nil {
+			log.Println("failed to receive object file")
+		}
+	}
+	return
+}

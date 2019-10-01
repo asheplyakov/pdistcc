@@ -72,3 +72,75 @@ func TestReadTokenTo(t *testing.T) {
 		t.Errorf("wrong payload:\nexpected: %s\nactual:   %s", payload, sink.String())
 	}
 }
+
+func TestDccProcessResponse(t *testing.T) {
+	var (
+		ofile bytes.Buffer
+		sout  bytes.Buffer
+		serr  bytes.Buffer
+	)
+	c := new(DccClient)
+	c.version = 1
+	response := strings.Join([]string{
+		"DONE", "00000001",
+		"STAT", "00000000",
+		"SERR", "00000004", "serr",
+		"SOUT", "00000004", "sout",
+		"DOTO", "00000007", "fakeobj",
+	}, "")
+	c.rsock = bytes.NewBuffer([]byte(response))
+	c.ofile = &ofile
+	c.stdout = &sout
+	c.stderr = &serr
+	status, err := c.HandleResponse()
+	if err != nil {
+		t.Errorf("unexpected error %v", err)
+	}
+	if status != 0 {
+		t.Errorf("wrong status: %d, expected: %d", status, 0)
+	}
+	if sout.String() != "sout" {
+		t.Errorf("wrong stdout: %s, expected: %s", sout.String(), "sout")
+	}
+	if serr.String() != "serr" {
+		t.Errorf("wrong stderr: %s, expected: %s", serr.String(), "serr")
+	}
+	if ofile.String() != "fakeobj" {
+		t.Errorf(`DccClient.HandleResponse(): expected: "%s", actual "%s"`, "fakeobj", ofile.String())
+	}
+}
+
+func TestDccProcessResponseWrongVersion(t *testing.T) {
+	c := new(DccClient)
+	c.version = 1
+	response := strings.Join([]string{"DONE", "0000000a"}, "")
+	c.rsock = bytes.NewBuffer([]byte(response))
+	_, err := c.HandleResponse()
+	if err == nil {
+		t.Errorf("Unexpectedly accepted protocol version %d", 10)
+	}
+}
+
+func TestDccProcessResponseNoSTAT(t *testing.T) {
+	c := new(DccClient)
+	c.version = 1
+	response := strings.Join([]string{
+		"DONE", "00000001",
+		"SERR", "00000004", "serr",
+		"SOUT", "00000004", "sout",
+		"DOTO", "00000004", "fake",
+	}, "")
+	c.rsock = bytes.NewBuffer([]byte(response))
+	if _, err := c.HandleResponse(); err == nil {
+		t.Errorf("unexpectedly accepted response without STAT")
+	}
+}
+
+func TestDccProcessResponseJunk(t *testing.T) {
+	c := new(DccClient)
+	c.version = 1
+	c.rsock = bytes.NewBuffer([]byte("RandomJunkHere"))
+	if _, err := c.HandleResponse(); err == nil {
+		t.Errorf("unexpectedly accepted random junk as response")
+	}
+}
