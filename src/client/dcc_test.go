@@ -49,3 +49,15 @@ func TestDccRequest(t *testing.T) {
 		t.Errorf(`DccClient.Request: expected: "%s", actual "%s"`, expected, wsock.String())
 	}
 }
+
+func TestReadToken(t *testing.T) {
+	sock := bytes.NewBuffer([]byte("DONE00000001"))
+	val, err := readToken(sock, "DONE")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if val != 1 {
+		t.Errorf("wrong value: expected: %d, actual: %d", 1, val)
+	}
+}
+

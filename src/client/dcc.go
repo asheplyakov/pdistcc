@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strconv"
 )
 
 const (
@@ -46,6 +47,33 @@ func sendToken(sock io.Writer, token string, val int) (err error) {
 		log.Println(err)
 		return
 	}
+	return
+}
+
+func readToken(sock io.Reader, token string) (val int, err error) {
+	var (
+		buf   [TOKEN_LEN]byte
+		n     int
+		value int64
+	)
+	if n, err = io.ReadFull(sock, buf[:]); err != nil {
+		log.Println(err)
+		return
+	}
+	if n != TOKEN_LEN {
+		err = fmt.Errorf("failed to read %d bytes", TOKEN_LEN)
+		return
+	}
+	t := string(buf[:4])
+	if token != t {
+		err = fmt.Errorf("wrong token: expected: %s, got: %s", token, t)
+		return
+	}
+	if value, err = strconv.ParseInt(string(buf[4:]), 16, 32); err != nil {
+		log.Println(err)
+		return
+	}
+	val = int(value)
 	return
 }
 
