@@ -52,6 +52,31 @@ func TestSendTokenFailedWrite(t *testing.T) {
 	}
 }
 
+func TestSendStringToken(t *testing.T) {
+	var sock bytes.Buffer
+	if err := sendStringToken(&sock, "ARGV", "-o"); err != nil {
+		t.Errorf("TestSendStringToken: unexpected error: %v", err)
+	}
+	expected := "ARGV" + "00000002" + "-o"
+	if sock.String() != expected {
+		t.Errorf(`sendStringToken: expected: "%s", actual: "%s"`, expected, sock.String())
+	}
+}
+
+func TestSendStringTokenFailedWrite(t *testing.T) {
+	var sock FaultyWriter
+	if err := sendStringToken(&sock, "ARGV", "-o"); err == nil {
+		t.Errorf("TestSendStringTokenFailedWrite unexpectedly passed")
+	}
+}
+
+func TestSendStringTokenShortWrite(t *testing.T) {
+	var sock ShortWriter
+	if err := sendStringToken(&sock, "ARGV", "-o"); err == nil {
+		t.Errorf("TestSendStringTokenShortWrite unexpectedly passed")
+	}
+}
+
 func TestDccRequest(t *testing.T) {
 	c := new(DccClient)
 	c.version = 1
