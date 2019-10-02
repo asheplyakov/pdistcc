@@ -238,6 +238,58 @@ func TestDccProcessResponseNoSTAT(t *testing.T) {
 	}
 }
 
+func TestDccProcessResponseNoSERR(t *testing.T) {
+	c := new(DccClient)
+	c.version = 1
+	c.stdout = bytes.NewBuffer(nil)
+	c.stderr = bytes.NewBuffer(nil)
+	response := strings.Join([]string{
+		"DONE", "00000001",
+		"STAT", "00000000",
+		"SOUT", "00000004", "sout",
+		"DOTO", "00000004", "fake",
+	}, "")
+	c.rsock = bytes.NewBuffer([]byte(response))
+	if _, err := c.HandleResponse(); err == nil {
+		t.Errorf("unexpectedly accepted response without SERR")
+	}
+}
+
+func TestDccProcessResponseNoSOUT(t *testing.T) {
+	c := new(DccClient)
+	c.version = 1
+	c.stdout = bytes.NewBuffer(nil)
+	c.stderr = bytes.NewBuffer(nil)
+	response := strings.Join([]string{
+		"DONE", "00000001",
+		"STAT", "00000000",
+		"SERR", "00000004", "serr",
+		"DOTO", "00000004", "fake",
+	}, "")
+	c.rsock = bytes.NewBuffer([]byte(response))
+	if _, err := c.HandleResponse(); err == nil {
+		t.Errorf("unexpectedly accepted response without SERR")
+	}
+}
+
+func TestDccProcessResponseNoDOTO(t *testing.T) {
+	c := new(DccClient)
+	c.version = 1
+	c.stdout = bytes.NewBuffer(nil)
+	c.stderr = bytes.NewBuffer(nil)
+	c.ofile = bytes.NewBuffer(nil)
+	response := strings.Join([]string{
+		"DONE", "00000001",
+		"STAT", "00000000",
+		"SERR", "00000004", "serr",
+		"SOUT", "00000004", "sout",
+	}, "")
+	c.rsock = bytes.NewBuffer([]byte(response))
+	if _, err := c.HandleResponse(); err == nil {
+		t.Errorf("unexpectedly accepted response without DOTO")
+	}
+}
+
 func TestDccProcessResponseJunk(t *testing.T) {
 	c := new(DccClient)
 	c.version = 1
