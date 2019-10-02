@@ -13,9 +13,25 @@ func (w *FaultyWriter) Write(p []byte) (n int, err error) {
 	return 0, errors.New("you should not pass")
 }
 
+type FaultyReader int
+
+func (r *FaultyReader) Read(p []byte) (n int, err error) {
+	return 0, errors.New("you should not pass")
+}
+
 type ShortWriter int
 
 func (w *ShortWriter) Write(p []byte) (n int, err error) {
+	return
+}
+
+type ShortReader int
+
+func (r *ShortReader) Read(p []byte) (n int, err error) {
+	if len(p) >= 1 {
+		p[0] = 'a'
+		n = 1
+	}
 	return
 }
 
@@ -115,6 +131,30 @@ func TestReadToken(t *testing.T) {
 	}
 }
 
+func TestReadTokenFailedRead(t *testing.T) {
+	var sock FaultyReader
+	_, err := readToken(&sock, "DIST")
+	if err == nil {
+		t.Errorf("TestReadTokenFailedRead: unexpectedly passed")
+	}
+}
+
+func TestReadTokenShortRead(t *testing.T) {
+	var sock ShortReader
+	_, err := readToken(&sock, "DIST")
+	if err == nil {
+		t.Errorf("TestReadTokenShortRead uexpectedly passed")
+	}
+}
+
+func TestReadTokenInvalidInt(t *testing.T) {
+	sock := bytes.NewBuffer([]byte("DISTxxxyyyzz"))
+	_, err := readToken(sock, "DIST")
+	if err == nil {
+		t.Errorf("TestReadTokenInvalidInt unexpectedly passed")
+	}
+}
+
 func TestReadTokenTo(t *testing.T) {
 	var sink bytes.Buffer
 	payload := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -124,6 +164,14 @@ func TestReadTokenTo(t *testing.T) {
 	}
 	if sink.String() != payload {
 		t.Errorf("wrong payload:\nexpected: %s\nactual:   %s", payload, sink.String())
+	}
+}
+
+func TestReadTokenToFaultyWrite(t *testing.T) {
+	var doto FaultyWriter
+	sock := bytes.NewBuffer([]byte("DOTO" + "00000001" + "a"))
+	if err := readTokenTo(sock, "DOTO", &doto); err == nil {
+		t.Errorf("TestReadTokenToFaultyWrite unexpectedly passed")
 	}
 }
 
