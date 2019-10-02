@@ -2,9 +2,22 @@ package client
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 	"testing"
 )
+
+type FaultyWriter int
+
+func (w *FaultyWriter) Write(p []byte) (n int, err error) {
+	return 0, errors.New("you should not pass")
+}
+
+type ShortWriter int
+
+func (w *ShortWriter) Write(p []byte) (n int, err error) {
+	return
+}
 
 func TestDccEncode(t *testing.T) {
 	encoded := DccEncode("OOPS", 31)
@@ -20,6 +33,22 @@ func TestDccEncodeString(t *testing.T) {
 	encoded := DccEncodeString("ARGV", arg)
 	if encoded != expected {
 		t.Errorf("DccEncodeString: expected %v, actual %v", expected, encoded)
+	}
+}
+
+func TestSendTokenShortWrite(t *testing.T) {
+	var sock ShortWriter
+	err := sendToken(&sock, "DIST", 1)
+	if err == nil {
+		t.Errorf("TestSendTokenShortWrite: unexpectedly passed")
+	}
+}
+
+func TestSendTokenFailedWrite(t *testing.T) {
+	var sock FaultyWriter
+	err := sendToken(&sock, "DIST", 1)
+	if err == nil {
+		t.Errorf("TestSendTokenShortWrite: unexpectedly passed")
 	}
 }
 
