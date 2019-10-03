@@ -138,6 +138,66 @@ func TestDccRequest(t *testing.T) {
 	}
 }
 
+func TestDccRequestBrokenDoti(t *testing.T) {
+	c := new(DccClient)
+	c.version = 1
+	var wsock bytes.Buffer
+	c.wsock = &wsock
+	c.doti = new(FaultyReader)
+	c.dotilen = 100
+	args := []string{"gcc", "-c", "-o", "foo.o", "foo.c"}
+	err := c.Request(args)
+	if err == nil {
+		t.Errorf("TestDccRequestBrokenDoti unexpectedly passed")
+	}
+}
+
+func TestDccRequestShortWriteDIST(t *testing.T) {
+	c := new(DccClient)
+	c.version = 1
+	c.wsock = NewLimitedWriter(11) // not enough even for one token
+	args := []string{"gcc", "-c", "-o", "foo.o", "foo.c"}
+	err := c.Request(args)
+	if err == nil {
+		t.Errorf("TestDccRequestShortWriteDIST unexpectedly passed")
+	}
+}
+
+func TestDccRequestShortWriteARGC(t *testing.T) {
+	c := new(DccClient)
+	c.version = 1
+	c.wsock = NewLimitedWriter(20) // enough for one token only
+	args := []string{"gcc", "-c", "-o", "foo.o", "foo.c"}
+	err := c.Request(args)
+	if err == nil {
+		t.Errorf("TestDccRequestShortWriteARGC unexpectedly passed")
+	}
+}
+
+func TestDccRequestShortWriteARGV(t *testing.T) {
+	c := new(DccClient)
+	c.version = 1
+	c.wsock = NewLimitedWriter(36) // enough for 3 tokens only
+	args := []string{"gcc", "-c", "-o", "foo.o", "foo.c"}
+	err := c.Request(args)
+	if err == nil {
+		t.Errorf("TestDccRequestShortWriteARGV unexpectedly passed")
+	}
+}
+
+func TestDccRequestShortWriteDOTI(t *testing.T) {
+	args := []string{"gcc", "-c", "-o", "foo.o", "foo.c"}
+	needBytes := 2*12 /* DIST + ARGC */ + len(args)*12 /* ARGV */ + len(strings.Join(args, "")) + 12 /* DOTI */
+
+	c := new(DccClient)
+	c.version = 1
+	c.wsock = NewLimitedWriter(needBytes - 1) // enough for 3 tokens only
+	err := c.Request(args)
+	if err == nil {
+		t.Errorf("TestDccRequestShortWriteARGV unexpectedly passed")
+	}
+}
+
 func TestReadToken(t *testing.T) {
 	sock := bytes.NewBuffer([]byte("DONE00000001"))
 	val, err := readToken(sock, "DONE")
