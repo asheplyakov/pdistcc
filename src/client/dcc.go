@@ -57,11 +57,11 @@ func readToken(sock io.Reader, token string) (val int, err error) {
 		value int64
 	)
 	if n, err = io.ReadFull(sock, buf[:]); err != nil {
-		log.Println(err)
-		return
-	}
-	if n != TOKEN_LEN {
-		err = fmt.Errorf("failed to read %d bytes", TOKEN_LEN)
+		if n != TOKEN_LEN {
+			log.Printf("readToken: short read: %d bytes of %d", n, TOKEN_LEN)
+		} else {
+			log.Println("readToken: error:", err)
+		}
 		return
 	}
 	t := string(buf[:4])
@@ -116,11 +116,11 @@ func (c *DccClient) Request(args []string) (err error) {
 	}
 	sz, err = io.Copy(c.wsock, c.doti)
 	if err != nil {
-		return
-	}
-	if sz != int64(c.dotilen) {
-		err = fmt.Errorf("Failed to send DOTI file")
-		log.Println("Failed to send DOTI file")
+		if sz != int64(c.dotilen) {
+			log.Printf("Failed to send DOTI file: partial write: %d bytes of %d", int(sz), c.dotilen)
+		} else {
+			log.Println("Failed to send DOTI file:", err)
+		}
 		return
 	}
 	return
