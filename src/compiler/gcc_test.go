@@ -29,6 +29,99 @@ func TestSourceFileC(t *testing.T) {
 	}
 }
 
+func TestX(t *testing.T) {
+	var wrapper GccWrapper
+	cmd := []string{"gcc", "-c", "-o", "foo.o", "-x", "c", "foo.c"}
+	err := wrapper.CanHandleCommand(cmd)
+	if err != nil {
+		t.Errorf("Unabled to handle command %v", cmd)
+	}
+}
+
+func TestManySources(t *testing.T) {
+	var wrapper GccWrapper
+	cmd := []string{"gcc", "-c", "-o", "foo.o", "foo.c", "bar.c"}
+	err := wrapper.CanHandleCommand(cmd)
+	if err == nil {
+		t.Errorf("Compilation of multiple sources is erroneously accepted")
+		return
+	}
+	switch err.(type) {
+	case *UnsupportedCompilationMode:
+		return
+	default:
+		t.Errorf("Unexpected error %v", err)
+	}
+}
+
+func TestNoSources(t *testing.T) {
+	var wrapper GccWrapper
+	cmd := []string{"gcc", "-c", "-o", "foo.o"}
+	err := wrapper.CanHandleCommand(cmd)
+	if err == nil {
+		t.Errorf("Compilation without sources is erroneously accepted")
+		return
+	}
+	switch err.(type) {
+	case *UnsupportedCompilationMode:
+		return
+	default:
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+func TestLinkingRejected(t *testing.T) {
+	var wrapper GccWrapper
+	cmd := []string{"gcc", "-o", "foo", "foo.c"}
+	err := wrapper.CanHandleCommand(cmd)
+	if err == nil {
+		t.Errorf("Linking has been erroneously accepted")
+		return
+	}
+	switch err.(type) {
+	case *UnsupportedCompilationMode:
+		return
+	default:
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+func TestNoObjectFileRejected(t *testing.T) {
+	var wrapper GccWrapper
+	cmd := []string{"gcc", "-c", "foo.c"}
+	err := wrapper.CanHandleCommand(cmd)
+	if err == nil {
+		t.Errorf("Linking has been erroneously accepted")
+		return
+	}
+	switch err.(type) {
+	case *UnsupportedCompilationMode:
+		return
+	default:
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+func TestIsSourceFile(t *testing.T) {
+	var wrapper GccWrapper
+	srcFiles := []string{"foo.c", "foo.cc", "foo.cxx", "foo.cpp"}
+	for _, name := range srcFiles {
+		if !wrapper.is_source_file(name) {
+			t.Errorf("TestIsSourceFile: file %s is not recognized as a source", name)
+		}
+	}
+}
+
+func TestIsNotSourceFile(t *testing.T) {
+	var wrapper GccWrapper
+	files := []string{"foo.h", "foo.txt", "foo.hpp"}
+	for _, name := range files {
+		if wrapper.is_source_file(name) {
+			t.Errorf("TestIsNotSourceFile: file %s has been erroneously recognized as source", name)
+		}
+	}
+}
+
 func TestPreprocessorCmd(t *testing.T) {
 	wrapper := GccWrapper{}
 	cmd := []string{"gcc", "-c", "-o", "foo.o", "foo.c"}
