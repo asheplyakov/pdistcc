@@ -19,9 +19,27 @@ func (r *FaultyReader) Read(p []byte) (n int, err error) {
 	return 0, errors.New("you should not pass")
 }
 
-type ShortWriter int
+type LimitedWriter struct {
+	Capacity  int
+	remaining int
+}
 
-func (w *ShortWriter) Write(p []byte) (n int, err error) {
+func NewLimitedWriter(capacity int) *LimitedWriter {
+	w := new(LimitedWriter)
+	w.Capacity = capacity
+	w.remaining = capacity
+	return w
+}
+
+func (w *LimitedWriter) Write(p []byte) (n int, err error) {
+	if w.remaining <= 0 {
+		err = errors.New("out of buffer space")
+	} else if w.remaining < len(p) {
+		n = w.remaining
+	} else {
+		n = len(p)
+	}
+	w.remaining -= n
 	return
 }
 
@@ -53,8 +71,8 @@ func TestDccEncodeString(t *testing.T) {
 }
 
 func TestSendTokenShortWrite(t *testing.T) {
-	var sock ShortWriter
-	err := sendToken(&sock, "DIST", 1)
+	sock := NewLimitedWriter(1)
+	err := sendToken(sock, "DIST", 1)
 	if err == nil {
 		t.Errorf("TestSendTokenShortWrite: unexpectedly passed")
 	}
@@ -87,8 +105,8 @@ func TestSendStringTokenFailedWrite(t *testing.T) {
 }
 
 func TestSendStringTokenShortWrite(t *testing.T) {
-	var sock ShortWriter
-	if err := sendStringToken(&sock, "ARGV", "-o"); err == nil {
+	sock := NewLimitedWriter(1)
+	if err := sendStringToken(sock, "ARGV", "-o"); err == nil {
 		t.Errorf("TestSendStringTokenShortWrite unexpectedly passed")
 	}
 }
