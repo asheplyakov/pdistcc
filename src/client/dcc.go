@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
+	"os"
 	"strconv"
 )
 
@@ -168,5 +170,63 @@ func (c *DccClient) HandleResponse() (status int, err error) {
 			log.Println("failed to receive object file")
 		}
 	}
+	return
+}
+
+func (c *DccClient) Compile(args []string) (status int, err error) {
+	status = -1
+	if err = c.Request(args); err != nil {
+		log.Println("failed to enqueue compilation", err)
+		return
+	}
+	status, err = c.HandleResponse()
+	if err != nil {
+		log.Println("failed to process server response", err)
+	}
+	return
+}
+
+func DccCompile(args []string, src string, obj string, where string) (status int, err error) {
+	status = -1
+	var (
+		c       DccClient
+		conn    net.Conn
+		inf     os.FileInfo
+		doti    *os.File
+		objfile *os.File
+	)
+
+	c.version = 1
+	c.stdout = os.Stdout
+	c.stderr = os.Stderr
+
+	if doti, err = os.Open(src); err != nil {
+		log.Println("failed to open preprocessed source file", src)
+		return
+	}
+	defer doti.Close()
+	if inf, err = doti.Stat(); err != nil {
+		log.Println("failed to stat preprocessed source file", src)
+		return
+	}
+	c.dotilen = int(inf.Size())
+	c.doti = doti
+
+	if objfile, err = os.Create(obj); err != nil {
+		log.Println("failed to open object file", obj, "for writing")
+		return
+	}
+	defer objfile.Close()
+	c.ofile = objfile
+
+	if conn, err = net.Dial("tcp", where); err != nil {
+		log.Println("failed to connect to", where)
+		return
+	}
+	defer conn.Close()
+	c.rsock = conn
+	c.wsock = conn
+
+	status, err = c.Compile(args)
 	return
 }
