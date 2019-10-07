@@ -37,7 +37,6 @@ func (gcc *GccWrapper) MatchCompiler(args []string) bool {
 }
 
 func (gcc *GccWrapper) CanHandleCommand(args []string) (err error) {
-	err = nil
 	source_count := 0
 	is_object_compilation := false
 	has_object_file := false
