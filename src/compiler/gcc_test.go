@@ -135,3 +135,27 @@ func TestPreprocessorCmd(t *testing.T) {
 		t.Errorf("PreprocessorCmd: expected %v, actual %v", expected, preprocessor_cmd)
 	}
 }
+
+func TestMatchCompilerGXX(t *testing.T) {
+	wrapper := GccWrapper{}
+	cmd := []string{"g++", "-c", "-o", "foo.o", "foo.cpp"}
+	if ok := wrapper.MatchCompiler(cmd); !ok {
+		t.Errorf("GccWrapper rejects command %v", cmd)
+	}
+}
+
+func TestMatchCompilerGCCN(t *testing.T) {
+	wrapper := GccWrapper{}
+	cmd := []string{"gcc-8", "-c", "-o", "foo.o", "foo.c"}
+	if ok := wrapper.MatchCompiler(cmd); !ok {
+		t.Errorf("GccWrapper rejects command %v", cmd)
+	}
+}
+
+func TestMatchCompilerBarf(t *testing.T) {
+	wrapper := GccWrapper{}
+	cmd := []string{"barf", "foo", "blah"}
+	if ok := wrapper.MatchCompiler(cmd); ok {
+		t.Errorf("GccWrapper erroneously accepted command %v", cmd)
+	}
+}

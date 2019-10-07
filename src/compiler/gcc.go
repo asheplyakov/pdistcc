@@ -2,6 +2,7 @@ package gcc
 
 import (
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -15,6 +16,23 @@ type GccWrapper struct {
 	srcfile           string
 	objfile           string
 	preprocessed_file string
+}
+
+func (gcc *GccWrapper) MatchCompiler(args []string) bool {
+	if len(args) < 1 {
+		return false
+	}
+	matchers := []string{
+		`\bgcc(-[3-9](\.[0-9]+)*)*$`,
+		`\bg\+\+(-[3-9](\.[0-9]+)*)*$`,
+	}
+	compiler := args[0]
+	for _, rx := range matchers {
+		if match, _ := regexp.MatchString(rx, compiler); match {
+			return true
+		}
+	}
+	return false
 }
 
 func (gcc *GccWrapper) CanHandleCommand(args []string) (err error) {
