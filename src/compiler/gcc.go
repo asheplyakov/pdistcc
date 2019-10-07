@@ -1,6 +1,7 @@
-package gcc
+package compiler
 
 import (
+	"fmt"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -121,6 +122,10 @@ func (gcc *GccWrapper) PreprocessorCmd() ([]string, error) {
 		}
 	}
 	return cmd, nil
+}
+
+func (gcc *GccWrapper) CompilerCmd() ([]string, error) {
+	return nil, fmt.Errorf("GccWrapper.CompilerCmd(): stub")
 }
 
 func (gcc *GccWrapper) is_source_file(path string) bool {
