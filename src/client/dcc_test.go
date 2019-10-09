@@ -72,7 +72,7 @@ func TestDccEncodeString(t *testing.T) {
 
 func TestSendTokenShortWrite(t *testing.T) {
 	sock := NewLimitedWriter(1)
-	err := sendToken(sock, "DIST", 1)
+	err := SendToken(sock, "DIST", 1)
 	if err == nil {
 		t.Errorf("TestSendTokenShortWrite: unexpectedly passed")
 	}
@@ -80,7 +80,7 @@ func TestSendTokenShortWrite(t *testing.T) {
 
 func TestSendTokenFailedWrite(t *testing.T) {
 	var sock FaultyWriter
-	err := sendToken(&sock, "DIST", 1)
+	err := SendToken(&sock, "DIST", 1)
 	if err == nil {
 		t.Errorf("TestSendTokenShortWrite: unexpectedly passed")
 	}
@@ -88,25 +88,25 @@ func TestSendTokenFailedWrite(t *testing.T) {
 
 func TestSendStringToken(t *testing.T) {
 	var sock bytes.Buffer
-	if err := sendStringToken(&sock, "ARGV", "-o"); err != nil {
+	if err := SendStringToken(&sock, "ARGV", "-o"); err != nil {
 		t.Errorf("TestSendStringToken: unexpected error: %v", err)
 	}
 	expected := "ARGV" + "00000002" + "-o"
 	if sock.String() != expected {
-		t.Errorf(`sendStringToken: expected: "%s", actual: "%s"`, expected, sock.String())
+		t.Errorf(`SendStringToken: expected: "%s", actual: "%s"`, expected, sock.String())
 	}
 }
 
 func TestSendStringTokenFailedWrite(t *testing.T) {
 	var sock FaultyWriter
-	if err := sendStringToken(&sock, "ARGV", "-o"); err == nil {
+	if err := SendStringToken(&sock, "ARGV", "-o"); err == nil {
 		t.Errorf("TestSendStringTokenFailedWrite unexpectedly passed")
 	}
 }
 
 func TestSendStringTokenShortWrite(t *testing.T) {
 	sock := NewLimitedWriter(1)
-	if err := sendStringToken(sock, "ARGV", "-o"); err == nil {
+	if err := SendStringToken(sock, "ARGV", "-o"); err == nil {
 		t.Errorf("TestSendStringTokenShortWrite unexpectedly passed")
 	}
 }
@@ -200,7 +200,7 @@ func TestDccRequestShortWriteDOTI(t *testing.T) {
 
 func TestReadToken(t *testing.T) {
 	sock := bytes.NewBuffer([]byte("DONE00000001"))
-	val, err := readToken(sock, "DONE")
+	val, err := ReadToken(sock, "DONE")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -211,7 +211,7 @@ func TestReadToken(t *testing.T) {
 
 func TestReadTokenFailedRead(t *testing.T) {
 	var sock FaultyReader
-	_, err := readToken(&sock, "DIST")
+	_, err := ReadToken(&sock, "DIST")
 	if err == nil {
 		t.Errorf("TestReadTokenFailedRead: unexpectedly passed")
 	}
@@ -219,7 +219,7 @@ func TestReadTokenFailedRead(t *testing.T) {
 
 func TestReadTokenShortRead(t *testing.T) {
 	var sock ShortReader
-	_, err := readToken(&sock, "DIST")
+	_, err := ReadToken(&sock, "DIST")
 	if err == nil {
 		t.Errorf("TestReadTokenShortRead uexpectedly passed")
 	}
@@ -227,7 +227,7 @@ func TestReadTokenShortRead(t *testing.T) {
 
 func TestReadTokenInvalidInt(t *testing.T) {
 	sock := bytes.NewBuffer([]byte("DISTxxxyyyzz"))
-	_, err := readToken(sock, "DIST")
+	_, err := ReadToken(sock, "DIST")
 	if err == nil {
 		t.Errorf("TestReadTokenInvalidInt unexpectedly passed")
 	}
@@ -237,7 +237,7 @@ func TestReadTokenTo(t *testing.T) {
 	var sink bytes.Buffer
 	payload := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	sock := bytes.NewBuffer([]byte("DOTO" + "0000001f" + payload))
-	if err := readTokenTo(sock, "DOTO", &sink); err != nil {
+	if err := ReadTokenTo(sock, "DOTO", &sink); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	if sink.String() != payload {
@@ -248,7 +248,7 @@ func TestReadTokenTo(t *testing.T) {
 func TestReadTokenToFaultyWrite(t *testing.T) {
 	var doto FaultyWriter
 	sock := bytes.NewBuffer([]byte("DOTO" + "00000001" + "a"))
-	if err := readTokenTo(sock, "DOTO", &doto); err == nil {
+	if err := ReadTokenTo(sock, "DOTO", &doto); err == nil {
 		t.Errorf("TestReadTokenToFaultyWrite unexpectedly passed")
 	}
 }

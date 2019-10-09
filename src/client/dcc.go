@@ -37,7 +37,7 @@ func DccEncodeString(token string, val string) string {
 	return fmt.Sprintf("%s%08x%s", string(tok[:]), len(val), val)
 }
 
-func sendToken(sock io.Writer, token string, val int) (err error) {
+func SendToken(sock io.Writer, token string, val int) (err error) {
 	var n int
 	n, err = io.WriteString(sock, DccEncode(token, val))
 	if err != nil {
@@ -52,7 +52,7 @@ func sendToken(sock io.Writer, token string, val int) (err error) {
 	return
 }
 
-func readToken(sock io.Reader, token string) (val int, err error) {
+func ReadToken(sock io.Reader, token string) (val int, err error) {
 	var (
 		buf   [TOKEN_LEN]byte
 		n     int
@@ -60,9 +60,9 @@ func readToken(sock io.Reader, token string) (val int, err error) {
 	)
 	if n, err = io.ReadFull(sock, buf[:]); err != nil {
 		if n != TOKEN_LEN {
-			log.Printf("readToken: short read: %d bytes of %d", n, TOKEN_LEN)
+			log.Printf("ReadToken: short read: %d bytes of %d", n, TOKEN_LEN)
 		} else {
-			log.Println("readToken: error:", err)
+			log.Println("ReadToken: error:", err)
 		}
 		return
 	}
@@ -79,7 +79,7 @@ func readToken(sock io.Reader, token string) (val int, err error) {
 	return
 }
 
-func sendStringToken(sock io.Writer, token string, val string) (err error) {
+func SendStringToken(sock io.Writer, token string, val string) (err error) {
 	var n int
 	encoded := DccEncodeString(token, val)
 	n, err = io.WriteString(sock, encoded)
@@ -97,22 +97,22 @@ func sendStringToken(sock io.Writer, token string, val string) (err error) {
 
 func (c *DccClient) Request(args []string) (err error) {
 	var sz int64
-	err = sendToken(c.wsock, "DIST", c.version)
+	err = SendToken(c.wsock, "DIST", c.version)
 	if err != nil {
 		return
 	}
-	err = sendToken(c.wsock, "ARGC", len(args))
+	err = SendToken(c.wsock, "ARGC", len(args))
 	if err != nil {
 		return
 	}
 	for i, arg := range args {
-		err = sendStringToken(c.wsock, "ARGV", arg)
+		err = SendStringToken(c.wsock, "ARGV", arg)
 		if err != nil {
 			log.Println("Failed to send arg", i)
 			return
 		}
 	}
-	err = sendToken(c.wsock, "DOTI", c.dotilen)
+	err = SendToken(c.wsock, "DOTI", c.dotilen)
 	if err != nil {
 		return
 	}
@@ -128,11 +128,11 @@ func (c *DccClient) Request(args []string) (err error) {
 	return
 }
 
-func readTokenTo(sock io.Reader, name string, w io.Writer) (err error) {
+func ReadTokenTo(sock io.Reader, name string, w io.Writer) (err error) {
 	var (
 		size int
 	)
-	if size, err = readToken(sock, name); err != nil {
+	if size, err = ReadToken(sock, name); err != nil {
 		err = fmt.Errorf("haven't got a valid %s token: %v", name, err)
 		return
 	}
@@ -147,7 +147,7 @@ func (c *DccClient) HandleResponse() (status int, err error) {
 	var (
 		version int
 	)
-	if version, err = readToken(c.rsock, "DONE"); err != nil {
+	if version, err = ReadToken(c.rsock, "DONE"); err != nil {
 		err = fmt.Errorf("haven't got a valid distcc greeting: %v", err)
 		return
 	}
@@ -155,18 +155,18 @@ func (c *DccClient) HandleResponse() (status int, err error) {
 		err = fmt.Errorf("Unsupported protocol version: %d", version)
 		return
 	}
-	if status, err = readToken(c.rsock, "STAT"); err != nil {
+	if status, err = ReadToken(c.rsock, "STAT"); err != nil {
 		err = fmt.Errorf("haven't got a valid STAT: %v", err)
 		return
 	}
-	if err = readTokenTo(c.rsock, "SERR", c.stderr); err != nil {
+	if err = ReadTokenTo(c.rsock, "SERR", c.stderr); err != nil {
 		return
 	}
-	if err = readTokenTo(c.rsock, "SOUT", c.stdout); err != nil {
+	if err = ReadTokenTo(c.rsock, "SOUT", c.stdout); err != nil {
 		return
 	}
 	if status == 0 {
-		if err = readTokenTo(c.rsock, "DOTO", c.ofile); err != nil {
+		if err = ReadTokenTo(c.rsock, "DOTO", c.ofile); err != nil {
 			log.Println("failed to receive object file")
 		}
 	}
