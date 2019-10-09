@@ -1,115 +1,11 @@
-package client
+package dccclient
 
 import (
 	"bytes"
-	"errors"
+	"github.com/asheplyakov/pdistcc/pkg/testhelpers"
 	"strings"
 	"testing"
 )
-
-type FaultyWriter int
-
-func (w *FaultyWriter) Write(p []byte) (n int, err error) {
-	return 0, errors.New("you should not pass")
-}
-
-type FaultyReader int
-
-func (r *FaultyReader) Read(p []byte) (n int, err error) {
-	return 0, errors.New("you should not pass")
-}
-
-type LimitedWriter struct {
-	Capacity  int
-	remaining int
-}
-
-func NewLimitedWriter(capacity int) *LimitedWriter {
-	w := new(LimitedWriter)
-	w.Capacity = capacity
-	w.remaining = capacity
-	return w
-}
-
-func (w *LimitedWriter) Write(p []byte) (n int, err error) {
-	if w.remaining <= 0 {
-		err = errors.New("out of buffer space")
-	} else if w.remaining < len(p) {
-		n = w.remaining
-	} else {
-		n = len(p)
-	}
-	w.remaining -= n
-	return
-}
-
-type ShortReader int
-
-func (r *ShortReader) Read(p []byte) (n int, err error) {
-	if len(p) >= 1 {
-		p[0] = 'a'
-		n = 1
-	}
-	return
-}
-
-func TestDccEncode(t *testing.T) {
-	encoded := DccEncode("OOPS", 31)
-	expected := "OOPS0000001f"
-	if encoded != expected {
-		t.Errorf("DccEncode: expected %v, actual %v", expected, encoded)
-	}
-}
-
-func TestDccEncodeString(t *testing.T) {
-	arg := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-	expected := "ARGV0000001f" + arg
-	encoded := DccEncodeString("ARGV", arg)
-	if encoded != expected {
-		t.Errorf("DccEncodeString: expected %v, actual %v", expected, encoded)
-	}
-}
-
-func TestSendTokenShortWrite(t *testing.T) {
-	sock := NewLimitedWriter(1)
-	err := SendToken(sock, "DIST", 1)
-	if err == nil {
-		t.Errorf("TestSendTokenShortWrite: unexpectedly passed")
-	}
-}
-
-func TestSendTokenFailedWrite(t *testing.T) {
-	var sock FaultyWriter
-	err := SendToken(&sock, "DIST", 1)
-	if err == nil {
-		t.Errorf("TestSendTokenShortWrite: unexpectedly passed")
-	}
-}
-
-func TestSendStringToken(t *testing.T) {
-	var sock bytes.Buffer
-	if err := SendStringToken(&sock, "ARGV", "-o"); err != nil {
-		t.Errorf("TestSendStringToken: unexpected error: %v", err)
-	}
-	expected := "ARGV" + "00000002" + "-o"
-	if sock.String() != expected {
-		t.Errorf(`SendStringToken: expected: "%s", actual: "%s"`, expected, sock.String())
-	}
-}
-
-func TestSendStringTokenFailedWrite(t *testing.T) {
-	var sock FaultyWriter
-	if err := SendStringToken(&sock, "ARGV", "-o"); err == nil {
-		t.Errorf("TestSendStringTokenFailedWrite unexpectedly passed")
-	}
-}
-
-func TestSendStringTokenShortWrite(t *testing.T) {
-	sock := NewLimitedWriter(1)
-	if err := SendStringToken(sock, "ARGV", "-o"); err == nil {
-		t.Errorf("TestSendStringTokenShortWrite unexpectedly passed")
-	}
-}
 
 func TestDccRequest(t *testing.T) {
 	c := new(DccClient)
@@ -143,7 +39,7 @@ func TestDccRequestBrokenDoti(t *testing.T) {
 	c.version = 1
 	var wsock bytes.Buffer
 	c.wsock = &wsock
-	c.doti = new(FaultyReader)
+	c.doti = new(testhelpers.FaultyReader)
 	c.dotilen = 100
 	args := []string{"gcc", "-c", "-o", "foo.o", "foo.c"}
 	err := c.Request(args)
@@ -155,7 +51,7 @@ func TestDccRequestBrokenDoti(t *testing.T) {
 func TestDccRequestShortWriteDIST(t *testing.T) {
 	c := new(DccClient)
 	c.version = 1
-	c.wsock = NewLimitedWriter(11) // not enough even for one token
+	c.wsock = testhelpers.NewLimitedWriter(11) // not enough even for one token
 	args := []string{"gcc", "-c", "-o", "foo.o", "foo.c"}
 	err := c.Request(args)
 	if err == nil {
@@ -166,7 +62,7 @@ func TestDccRequestShortWriteDIST(t *testing.T) {
 func TestDccRequestShortWriteARGC(t *testing.T) {
 	c := new(DccClient)
 	c.version = 1
-	c.wsock = NewLimitedWriter(20) // enough for one token only
+	c.wsock = testhelpers.NewLimitedWriter(20) // enough for one token only
 	args := []string{"gcc", "-c", "-o", "foo.o", "foo.c"}
 	err := c.Request(args)
 	if err == nil {
@@ -177,7 +73,7 @@ func TestDccRequestShortWriteARGC(t *testing.T) {
 func TestDccRequestShortWriteARGV(t *testing.T) {
 	c := new(DccClient)
 	c.version = 1
-	c.wsock = NewLimitedWriter(36) // enough for 3 tokens only
+	c.wsock = testhelpers.NewLimitedWriter(36) // enough for 3 tokens only
 	args := []string{"gcc", "-c", "-o", "foo.o", "foo.c"}
 	err := c.Request(args)
 	if err == nil {
@@ -191,65 +87,10 @@ func TestDccRequestShortWriteDOTI(t *testing.T) {
 
 	c := new(DccClient)
 	c.version = 1
-	c.wsock = NewLimitedWriter(needBytes - 1) // enough for 3 tokens only
+	c.wsock = testhelpers.NewLimitedWriter(needBytes - 1) // enough for 3 tokens only
 	err := c.Request(args)
 	if err == nil {
 		t.Errorf("TestDccRequestShortWriteARGV unexpectedly passed")
-	}
-}
-
-func TestReadToken(t *testing.T) {
-	sock := bytes.NewBuffer([]byte("DONE00000001"))
-	val, err := ReadToken(sock, "DONE")
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if val != 1 {
-		t.Errorf("wrong value: expected: %d, actual: %d", 1, val)
-	}
-}
-
-func TestReadTokenFailedRead(t *testing.T) {
-	var sock FaultyReader
-	_, err := ReadToken(&sock, "DIST")
-	if err == nil {
-		t.Errorf("TestReadTokenFailedRead: unexpectedly passed")
-	}
-}
-
-func TestReadTokenShortRead(t *testing.T) {
-	var sock ShortReader
-	_, err := ReadToken(&sock, "DIST")
-	if err == nil {
-		t.Errorf("TestReadTokenShortRead uexpectedly passed")
-	}
-}
-
-func TestReadTokenInvalidInt(t *testing.T) {
-	sock := bytes.NewBuffer([]byte("DISTxxxyyyzz"))
-	_, err := ReadToken(sock, "DIST")
-	if err == nil {
-		t.Errorf("TestReadTokenInvalidInt unexpectedly passed")
-	}
-}
-
-func TestReadTokenTo(t *testing.T) {
-	var sink bytes.Buffer
-	payload := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-	sock := bytes.NewBuffer([]byte("DOTO" + "0000001f" + payload))
-	if err := ReadTokenTo(sock, "DOTO", &sink); err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if sink.String() != payload {
-		t.Errorf("wrong payload:\nexpected: %s\nactual:   %s", payload, sink.String())
-	}
-}
-
-func TestReadTokenToFaultyWrite(t *testing.T) {
-	var doto FaultyWriter
-	sock := bytes.NewBuffer([]byte("DOTO" + "00000001" + "a"))
-	if err := ReadTokenTo(sock, "DOTO", &doto); err == nil {
-		t.Errorf("TestReadTokenToFaultyWrite unexpectedly passed")
 	}
 }
 

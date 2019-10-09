@@ -1,15 +1,12 @@
-package compiler
+package gcc
 
 import (
 	"fmt"
+	"github.com/asheplyakov/pdistcc/pkg/wrappers"
 	"path/filepath"
 	"regexp"
 	"strings"
 )
-
-type UnsupportedCompilationMode struct {
-	msg string
-}
 
 type GccWrapper struct {
 	args              []string
@@ -63,13 +60,13 @@ func (gcc *GccWrapper) CanHandleCommand(args []string) (err error) {
 		}
 	}
 	if source_count == 0 {
-		err = &UnsupportedCompilationMode{"no source files"}
+		err = &wrappers.UnsupportedCompilationMode{"no source files"}
 	} else if source_count > 1 {
-		err = &UnsupportedCompilationMode{"multiple sources"}
+		err = &wrappers.UnsupportedCompilationMode{"multiple sources"}
 	} else if !is_object_compilation {
-		err = &UnsupportedCompilationMode{"linking"}
+		err = &wrappers.UnsupportedCompilationMode{"linking"}
 	} else if !has_object_file {
-		err = &UnsupportedCompilationMode{"output object is not specified"}
+		err = &wrappers.UnsupportedCompilationMode{"output object is not specified"}
 	}
 	if err == nil {
 		gcc.args = args
@@ -140,8 +137,4 @@ func (gcc *GccWrapper) is_source_file(path string) bool {
 		}
 	}
 	return false
-}
-
-func (e *UnsupportedCompilationMode) Error() string {
-	return e.msg
 }

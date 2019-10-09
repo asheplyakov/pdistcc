@@ -1,6 +1,7 @@
-package compiler
+package gcc
 
 import (
+	"github.com/asheplyakov/pdistcc/pkg/wrappers"
 	"reflect"
 	"testing"
 )
@@ -47,7 +48,7 @@ func TestManySources(t *testing.T) {
 		return
 	}
 	switch err.(type) {
-	case *UnsupportedCompilationMode:
+	case *wrappers.UnsupportedCompilationMode:
 		return
 	default:
 		t.Errorf("Unexpected error %v", err)
@@ -63,7 +64,7 @@ func TestNoSources(t *testing.T) {
 		return
 	}
 	switch err.(type) {
-	case *UnsupportedCompilationMode:
+	case *wrappers.UnsupportedCompilationMode:
 		return
 	default:
 		t.Errorf("Unexpected error: %v", err)
@@ -79,7 +80,7 @@ func TestLinkingRejected(t *testing.T) {
 		return
 	}
 	switch err.(type) {
-	case *UnsupportedCompilationMode:
+	case *wrappers.UnsupportedCompilationMode:
 		return
 	default:
 		t.Errorf("Unexpected error: %v", err)
@@ -95,7 +96,7 @@ func TestNoObjectFileRejected(t *testing.T) {
 		return
 	}
 	switch err.(type) {
-	case *UnsupportedCompilationMode:
+	case *wrappers.UnsupportedCompilationMode:
 		return
 	default:
 		t.Errorf("Unexpected error: %v", err)
