@@ -2,7 +2,7 @@ package gcc
 
 import (
 	"fmt"
-	"github.com/asheplyakov/pdistcc/pkg/wrappers"
+	e_wrappers "github.com/asheplyakov/pdistcc/pkg/wrappers/errors"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -60,13 +60,13 @@ func (gcc *GccWrapper) CanHandleCommand(args []string) (err error) {
 		}
 	}
 	if source_count == 0 {
-		err = &wrappers.UnsupportedCompilationMode{"no source files"}
+		err = &e_wrappers.UnsupportedCompilationMode{"no source files"}
 	} else if source_count > 1 {
-		err = &wrappers.UnsupportedCompilationMode{"multiple sources"}
+		err = &e_wrappers.UnsupportedCompilationMode{"multiple sources"}
 	} else if !is_object_compilation {
-		err = &wrappers.UnsupportedCompilationMode{"linking"}
+		err = &e_wrappers.UnsupportedCompilationMode{"linking"}
 	} else if !has_object_file {
-		err = &wrappers.UnsupportedCompilationMode{"output object is not specified"}
+		err = &e_wrappers.UnsupportedCompilationMode{"output object is not specified"}
 	}
 	if err == nil {
 		gcc.args = args

@@ -1,4 +1,4 @@
-package wrappers
+package errors
 
 type UnsupportedCompilationMode struct {
 	Msg string
