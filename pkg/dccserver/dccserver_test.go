@@ -26,6 +26,7 @@ func TestDccServerReadRequest(t *testing.T) {
 		"ARGV", "00000002", "-o",
 		"ARGV", "00000005", "foo.o",
 		"ARGV", "00000005", "foo.c",
+		"DOTI", "00000004", "fake",
 	}, "")
 	s.rsock = bytes.NewBuffer([]byte(request))
 	cmd, err := s.readRequest(&doti)
@@ -36,4 +37,8 @@ func TestDccServerReadRequest(t *testing.T) {
 	if !reflect.DeepEqual(cmd, expectedCmd) {
 		t.Errorf(`wrong cmd: expected "%v", actual "%v"`, expectedCmd, cmd)
 	}
+	if doti.String() != "fake" {
+		t.Errorf(`wrong doti: expected "fake", got "%s"`, doti.String())
+	}
+
 }

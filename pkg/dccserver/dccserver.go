@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/asheplyakov/pdistcc/pkg/dccproto"
+	"github.com/asheplyakov/pdistcc/pkg/wrappers"
 	"github.com/golang/glog"
 	"io"
 	"log"
@@ -47,6 +48,7 @@ func (s *DccServer) readCompilerArgs() (cmd []string, err error) {
 func (s *DccServer) readRequest(doti io.Writer) (cmd []string, err error) {
 	var (
 		version int
+		wrapper wrappers.CompilerWrapper
 	)
 	version, err = dccproto.ReadToken(s.rsock, "DIST")
 	if err != nil {
@@ -60,6 +62,18 @@ func (s *DccServer) readRequest(doti io.Writer) (cmd []string, err error) {
 	}
 	if cmd, err = s.readCompilerArgs(); err != nil {
 		glog.Errorf("failed to read compiler args: %v", err)
+		return
+	}
+	if wrapper, err = wrappers.Find(cmd); err != nil {
+		glog.Errorf(`no wrapper for "%v" could be found`, err)
+		return
+	}
+	if err = wrapper.CanHandleCommand(cmd); err != nil {
+		glog.Errorf(`can't handle "%v" command: %v`, cmd, err)
+		return
+	}
+	if err = dccproto.ReadTokenTo(s.rsock, "DOTI", doti); err != nil {
+		glog.Errorf(`failed to read preprocessed source: "%v"`, err)
 		return
 	}
 	return
