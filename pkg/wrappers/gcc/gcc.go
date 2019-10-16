@@ -120,8 +120,42 @@ func (gcc *GccWrapper) PreprocessorCmd() ([]string, error) {
 	return cmd, nil
 }
 
-func (gcc *GccWrapper) CompilerCmd() ([]string, error) {
-	return nil, fmt.Errorf("GccWrapper.CompilerCmd(): stub")
+func (gcc *GccWrapper) isPreprocessorArg(arg string) (skip bool, skip_next bool) {
+	switch {
+	case arg[:2] == "-I":
+		skip = true
+	case arg[:2] == "-D":
+		skip = true
+	}
+	return
+}
+
+func (gcc *GccWrapper) CompilerCmd(doti, ofile string) (cmd []string, err error) {
+	if len(gcc.args) == 0 || gcc.srcfile == "" || gcc.objfile == "" {
+		err = fmt.Errorf("Should have called CanHandleCommand first")
+		return
+	}
+
+	cmd = append(cmd, gcc.compiler)
+	skip, skip_next := false, false
+	for _, arg := range gcc.args[1:] {
+		if skip_next {
+			skip_next = false
+			continue
+		}
+		if skip, skip_next = gcc.isPreprocessorArg(arg); skip {
+			continue
+		}
+		switch {
+		case arg == gcc.srcfile:
+			cmd = append(cmd, "-x", gcc.lang(), doti)
+		case arg == gcc.objfile:
+			cmd = append(cmd, ofile)
+		default:
+			cmd = append(cmd, arg)
+		}
+	}
+	return
 }
 
 func (gcc *GccWrapper) is_source_file(path string) bool {

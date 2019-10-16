@@ -160,3 +160,49 @@ func TestMatchCompilerBarf(t *testing.T) {
 		t.Errorf("GccWrapper erroneously accepted command %v", cmd)
 	}
 }
+
+func TestCompilerCommandC(t *testing.T) {
+	var (
+		cmd []string
+		err error
+	)
+	wrapper := GccWrapper{}
+	origCmd := []string{"gcc", "-c", "-o", "foo.o", "foo.c"}
+	if err = wrapper.CanHandleCommand(origCmd); err != nil {
+		t.Errorf("GccWrapper rejects command %v", origCmd)
+		return
+	}
+	doti := "/tmp/fooXYZ.i"
+	ofile := "/tmp/fooXYZ.o"
+	if cmd, err = wrapper.CompilerCmd(doti, ofile); err != nil {
+		t.Errorf("could not figure out compilation command")
+		return
+	}
+	expected := []string{"gcc", "-c", "-o", ofile, "-x", "c", doti}
+	if !reflect.DeepEqual(cmd, expected) {
+		t.Errorf("wrong CompilerCommand: expected `%v`, actual `%v`", expected, cmd)
+	}
+}
+
+func TestCompilerCommandPreprocessorSkipped(t *testing.T) {
+	var (
+		cmd []string
+		err error
+	)
+	wrapper := GccWrapper{}
+	orig := []string{"gcc", "-c", "-o", "foo.o", "-DFOO=BAR", "-I..", "foo.c"}
+	if err = wrapper.CanHandleCommand(orig); err != nil {
+		t.Errorf("GccWrapper rejects command %v: %v", orig, err)
+		return
+	}
+	doti := "/tmp/fooXYZ.i"
+	ofile := "/tmp/fooXYZ.o"
+	if cmd, err = wrapper.CompilerCmd(doti, ofile); err != nil {
+		t.Errorf("could not figure out compilation command for %v", orig)
+		return
+	}
+	expected := []string{"gcc", "-c", "-o", ofile, "-x", "c", doti}
+	if !reflect.DeepEqual(cmd, expected) {
+		t.Errorf("wrong CompilerCommand: expected `%v`, actual `%v`", expected, cmd)
+	}
+}

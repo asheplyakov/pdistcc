@@ -10,7 +10,7 @@ type CompilerWrapper interface {
 	MatchCompiler(args []string) bool
 	CanHandleCommand(args []string) error
 	PreprocessorCmd() ([]string, error)
-	CompilerCmd() ([]string, error)
+	CompilerCmd(doti, ofile string) ([]string, error)
 }
 
 func Find(args []string) (obj CompilerWrapper, err error) {
