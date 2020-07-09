@@ -1,6 +1,7 @@
 
 import os
 import re
+import subprocess
 
 from .errors import (
         UnsupportedCompiler,
@@ -25,6 +26,13 @@ def find_compiler_wrapper(compiler_cmd, settings={}):
 
 
 def wrap_compiler(distcc_hosts, compiler_cmd, settings={}):
-    wrapper = find_compiler_wrapper(compiler_cmd, settings)
     host = pick_server(distcc_hosts, tuple(compiler_cmd))
-    wrapper.wrap_compiler(host['host'], host['port'])
+    if host['host'] == 'localhost':
+        subprocess.check_call(compiler_cmd)
+    else:
+        wrapper = find_compiler_wrapper(compiler_cmd, settings)
+        try:
+            wrapper.wrap_compiler(host['host'], host['port'])
+        except UnsupportedCompilationMode:
+            # called for linking, etc
+            subprocess.check_call(compiler_cmd)
