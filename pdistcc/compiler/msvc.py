@@ -77,6 +77,9 @@ class MSVCWrapper(CompilerWrapper):
         if not (is_object_compilation and has_object_file):
             raise UCM('Only compilation of a single source file is supported')
 
+    def called_for_preprocessing(self):
+        return False
+
     def _is_pdb_related(self, arg):
         return arg in ('/FS') or arg.startswith('/Fd')
 

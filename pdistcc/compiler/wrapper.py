@@ -14,6 +14,11 @@ class CompilerWrapper(object):
 
     def wrap_compiler(self, host, port):
         self.can_handle_command()
+        if self.called_for_preprocessing():
+            args = [self._compiler]
+            args.extend(self._args)
+            subprocess.check_call(args)
+            return
         preprocessor_cmd = self.preprocessor_cmd()
         try:
             subprocess.check_output(preprocessor_cmd)

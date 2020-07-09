@@ -145,6 +145,9 @@ class GCCWrapper(CompilerWrapper):
                 cmd.append(arg)
         return cmd
 
+    def called_for_preprocessing(self):
+        return '-E' in self._args
+
     def is_preprocessor_flag(self, arg):
         if any(arg.startswith(f) for f in ('-I', '-D')):
             return True, False
