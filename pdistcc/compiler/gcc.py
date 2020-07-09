@@ -149,7 +149,11 @@ class GCCWrapper(CompilerWrapper):
         return '-E' in self._args
 
     def is_preprocessor_flag(self, arg):
-        if any(arg.startswith(f) for f in ('-I', '-D')):
+        if arg.startswith('-D'):
+            return True, False
+        elif arg == '-I':
+            return True, True
+        elif arg.startswith('-I'):
             return True, False
         elif arg in ('-MD', '-M'):
             return True, False
