@@ -155,9 +155,11 @@ class GCCWrapper(CompilerWrapper):
             return True, True
         elif arg.startswith('-I'):
             return True, False
-        elif arg in ('-MD', '-M'):
+        elif arg in ('-MD', '-M', '-nostdinc'):
             return True, False
         elif arg in ('-MT', '-MF'):
+            return True, True
+        elif arg in ('-include', '-imacro', '-iquote', '-isystem'):
             return True, True
         else:
             return False, False
