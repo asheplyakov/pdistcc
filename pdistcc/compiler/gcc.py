@@ -155,6 +155,10 @@ class GCCWrapper(CompilerWrapper):
             return True, True
         elif arg.startswith('-I'):
             return True, False
+        elif arg.startswith('-Wp,'):
+            return True, False
+        elif arg == '-Xpreprocessor':
+            return True, True
         elif arg in ('-MD', '-M', '-nostdinc'):
             return True, False
         elif arg in ('-MT', '-MF'):
