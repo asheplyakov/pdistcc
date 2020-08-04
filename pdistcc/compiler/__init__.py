@@ -14,7 +14,7 @@ from ..sched import pick_server
 
 def find_compiler_wrapper(compiler_cmd, settings={}):
     compiler_name = os.path.basename(compiler_cmd[0])
-    if compiler_name in ('gcc', 'g++'):
+    if compiler_name in ('gcc', 'g++', 'c++'):
         wrapper = GCCWrapper(compiler_cmd, settings)
     elif re.match('^.*-gcc(-[0-9.]+)*$', compiler_name):
         wrapper = GCCWrapper(compiler_cmd, settings)
