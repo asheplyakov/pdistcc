@@ -1,0 +1,1 @@
+uhashring==2.0
