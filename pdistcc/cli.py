@@ -36,7 +36,7 @@ def _merge_settings_with_cli(settings, args):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--host', dest='distcc_hosts', action='append',
+    parser.add_argument('--host', dest='distcc_hosts',
                         nargs='*', help='where to compile')
     parser.add_argument("compiler", nargs='*', help="compiler and arguments")
     args, unknown = parser.parse_known_args()
