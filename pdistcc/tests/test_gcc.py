@@ -67,3 +67,8 @@ class TestGCCWrapper(object):
         wrapper.set_preprocessed_file('foo.ii')
         assert wrapper.preprocessed_file() == 'foo.ii'
         assert wrapper.compiler_cmd() == 'g++ -c -o foo.o -x c++ foo.ii'.split()
+
+    def test_called_for_preprocessing(self):
+        cmdline = 'gcc -E -o foo.i foo.c'.split()
+        wrapper = GCCWrapper(cmdline)
+        assert wrapper.called_for_preprocessing()

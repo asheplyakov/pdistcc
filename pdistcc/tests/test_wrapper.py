@@ -15,6 +15,8 @@ def test_wrapper(mocker):
     mocker.patch('subprocess.check_output')
     mocker.patch('pdistcc.compiler.wrapper.dcc_compile')
     wrapper = CompilerWrapper('gcc -c -o foo.o foo.c'.split())
+    setattr(wrapper, 'called_for_preprocessing', MagicMock())
+    wrapper.called_for_preprocessing.return_value = False
     setattr(wrapper, 'can_handle_command', MagicMock())
     wrapper.can_handle_command.return_value = None
     setattr(wrapper, 'preprocessor_cmd', MagicMock())
@@ -45,6 +47,8 @@ def test_wrapper_preprocessor_failed(mocker):
     subprocess.check_output.side_effect = subprocess.CalledProcessError(1, 'XX')
     mocker.patch('pdistcc.compiler.wrapper.dcc_compile')
     wrapper = CompilerWrapper('gcc -c -o foo.o foo.c'.split())
+    setattr(wrapper, 'called_for_preprocessing', MagicMock())
+    wrapper.called_for_preprocessing.return_value = False
     setattr(wrapper, 'can_handle_command', MagicMock())
     wrapper.can_handle_command.return_value = None
     setattr(wrapper, 'preprocessor_cmd', MagicMock())
@@ -63,3 +67,26 @@ def test_wrapper_preprocessor_failed(mocker):
     pdistcc.compiler.wrapper.dcc_compile.assert_not_called()
     wrapper.compiler_cmd.assert_not_called()
     wrapper.object_file.assert_not_called()
+
+
+def test_wrapper_called_for_preprocessing(mocker):
+    mocker.patch('subprocess.check_output')
+    mocker.patch('subprocess.check_call')
+    mocker.patch('pdistcc.compiler.wrapper.dcc_compile')
+    wrapper = CompilerWrapper('gcc -E -o foo.i foo.c'.split())
+    setattr(wrapper, 'called_for_preprocessing', MagicMock())
+    wrapper.called_for_preprocessing.return_value = True
+    setattr(wrapper, 'can_handle_command', MagicMock())
+    setattr(wrapper, 'preprocessor_cmd', MagicMock())
+    host = '127.0.0.1'
+    port = '3632'
+    wrapper.wrap_compiler(host, port)
+
+    subprocess.check_call.assert_called_once_with(
+        'gcc -E -o foo.i foo.c'.split()
+    )
+    # should execute preprocessor locally and exit
+    wrapper.can_handle_command.assert_not_called()
+    wrapper.preprocessor_cmd.assert_not_called()
+    subprocess.check_output.assert_not_called()
+    pdistcc.compiler.wrapper.dcc_compile.assert_not_called()
