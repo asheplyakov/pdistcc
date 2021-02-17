@@ -11,6 +11,15 @@
 * GCC: supported
 * MSVC: supported but requires non-zero setup
 
+## Installation
+
+* With pip
+  ```bash
+     pip install git+https://github.com/asheplyakov/pdistcc.git
+  ```
+* Or clone this repository and use `bin/pdistcc.py`
+
+
 ## MSVC: supported compilation mode
 
 * A single source file compiled to an object file (as in `/c`)
