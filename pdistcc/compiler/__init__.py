@@ -18,6 +18,8 @@ def find_compiler_wrapper(compiler_cmd, settings={}):
         wrapper = GCCWrapper(compiler_cmd, settings)
     elif re.match('^.*-gcc(-[0-9.]+)*$', compiler_name):
         wrapper = GCCWrapper(compiler_cmd, settings)
+    elif re.match('^.*-g[+][+](-[0-9.]+)*$', compiler_name):
+        wrapper = GCCWrapper(compiler_cmd, settings)
     elif compiler_name in ('cl', 'clang-cl', 'cl.exe', 'clang-cl.exe'):
         wrapper = MSVCWrapper(compiler_cmd, settings)
     else:
