@@ -1,9 +1,13 @@
 
+import aiofiles
 import os
 import socket
 import sys
 
-from contextlib import contextmanager
+from contextlib import (
+    contextmanager,
+    asynccontextmanager,
+)
 
 
 DCC_TOKEN_HEADER_LEN = 12
@@ -112,6 +116,32 @@ class FileOpsFactory(object):
 
     def remove(self, path):
         os.remove(path)
+
+
+class AsyncFileOpsFactory(object):
+    @asynccontextmanager
+    async def open(self, name, flags):
+        f = await aiofiles.open(name, flags)
+        try:
+            yield f
+        finally:
+            await f.close()
+
+    async def size(self, f):
+        st = await aiofiles.os.stat(f.fileno())
+        return st.st_size
+
+    def isfile(self, path):
+        return os.path.isfile(path)
+
+    async def flush(self, f):
+        await f.flush()
+
+    async def close(self, f):
+        await f.close()
+
+    async def remove(self, path):
+        await aiofiles.os.remove(path)
 
 
 class DccClient(object):
