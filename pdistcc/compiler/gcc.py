@@ -1,5 +1,6 @@
 
 import os
+import subprocess
 
 from .wrapper import CompilerWrapper
 from .errors import UnsupportedCompilationMode
@@ -8,6 +9,11 @@ LANG_C = 'c'
 LANG_CXX = 'c++'
 
 COMPILER_DIR = 'compiler_dir'
+
+
+def gcc_resolve_triplet(gccpath):
+    cmd = [gccpath, '-dumpmachine']
+    return subprocess.check_output(cmd).strip()
 
 
 class GCCWrapper(CompilerWrapper):
@@ -168,3 +174,24 @@ class GCCWrapper(CompilerWrapper):
         else:
             return False, False
 
+    def _resolve_march_native(self, flag='-march'):
+        cmd = [self._compiler, f'{flag}=native', '-Q', '--help=target']
+        out = subprocess.check_output(cmd, encoding='utf-8').strip()
+        for line in out.split('\n'):
+            if line.strip().startswith(f"{flag}="):
+                return ''.join(line.split())
+        raise RuntimeError(f"Failed to resolve {flag}=native")
+
+    def rewrite_local_args(self):
+        new_args = []
+        for arg in self._args:
+            if arg == "-march=native" or arg == "-mcpu=native":
+                new_arg = self._resolve_march_native(flag="-march")
+                print(f"rewritten {arg} as {new_arg}")
+            elif arg == "-mtune":
+                new_arg = self._resolve_march_native(flag="-mtune")
+                print(f"rewritten {arg} as {new_arg}")
+            else:
+                new_arg = arg
+            new_args.append(new_arg)
+        self._args = new_args
