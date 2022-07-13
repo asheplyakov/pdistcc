@@ -1,0 +1,9 @@
+
+CC = gcc
+CFLAGS = -O2 -flto -g -Wall -Werror -pipe
+
+rule cc
+    command = $CC -std=gnu89 $CFLAGS -o $out $in
+
+
+build test_inodecache: cc inodecache.c md5.c test_inodecache.c
