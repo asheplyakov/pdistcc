@@ -3,6 +3,7 @@
 #endif
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/file.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdint.h>
@@ -81,7 +82,7 @@ static int read_entry(int fd, char *result, size_t len) {
 	}
 	len -= 1; /* for a terminating NULL */
 
-	while ((bytes_read = read(fd, result, len)) > 0) {
+	while ((len > 0) && (bytes_read = read(fd, result, len)) > 0) {
 		result += bytes_read;
 		len -= bytes_read;
 	}
@@ -114,9 +115,50 @@ static int write_entry(int fd, const char *value, size_t len) {
 	return 0;
 }
 
+int inode_cache_lock(int dirfd, const char *entry_name, int exclusive) {
+	int fd = -1;
+	int err = 0;
+	char *lock_name = NULL;
+
+	if (asprintf(&lock_name, "%s.lock", entry_name) < 0) {
+		lock_name = NULL;
+		fd = -ENOMEM;
+		goto out;
+	}
+	fd = openat(dirfd, lock_name, O_WRONLY|O_TRUNC|O_CREAT, 0666);
+	if (fd < 0) {
+		err = -errno;
+		goto out;
+	}
+	if (flock(fd, exclusive ? LOCK_EX : LOCK_SH) < 0) {
+		err = -errno;
+		goto out;
+	}
+out:
+	free(lock_name);
+	if (err) {
+		if (fd >= 0) {
+			close(fd);
+		}
+		if (err > 0) {
+			err = -err;
+		}
+		return err;
+	} else {
+		return fd;
+	}
+}
+
+void inode_cache_unlock(int *lockfd) {
+	flock(*lockfd, LOCK_UN);
+	close(*lockfd);
+	*lockfd = -1;
+}
+
 int inode_cache_get(const struct inode_cache *cache, const char *path, uint16_t kind, char **result) {
 	int err;
 	int entry_fd = -1;
+	int lock_fd = -1;
 	char *entry_name = NULL;
 	char val_buf[INO_CACHE_ENTRY_MAX_SIZE];
 
@@ -127,6 +169,12 @@ int inode_cache_get(const struct inode_cache *cache, const char *path, uint16_t 
 	err = hash_inode(&entry_name, path, kind);
 	if (err) {
 		entry_name = NULL;
+		goto out;
+	}
+
+	lock_fd = inode_cache_lock(cache->dirfd, entry_name, /* exclusive = */ 0);
+	if (lock_fd < 0) {
+		err = lock_fd;
 		goto out;
 	}
 
@@ -145,6 +193,9 @@ out:
 	if (entry_fd >= 0) {
 		close(entry_fd);
 	}
+	if (lock_fd >= 0) {
+		inode_cache_unlock(&lock_fd);
+	}
 	free(entry_name);
 	return err;
 }
@@ -153,6 +204,7 @@ int inode_cache_put(const struct inode_cache *cache, const char *path, uint16_t 
 	int err = 0;
 	size_t value_len = 0;
 	int entry_fd = -1;
+	int lock_fd = -1;
 	const char *entry_name = NULL;
 
 	if (!cache) {
@@ -180,6 +232,12 @@ int inode_cache_put(const struct inode_cache *cache, const char *path, uint16_t 
 		goto out;
 	}
 
+	lock_fd = inode_cache_lock(cache->dirfd, entry_name, /* exclusive = */ 1);
+	if (lock_fd < 0) {
+		err = lock_fd;
+		goto out;
+	}
+
 	entry_fd = openat(cache->dirfd, entry_name, O_WRONLY|O_TRUNC|O_CREAT, 0666);
 	if (entry_fd < 0) {
 		err = entry_fd;
@@ -196,8 +254,13 @@ int inode_cache_put(const struct inode_cache *cache, const char *path, uint16_t 
 	if (close(entry_fd) < 0) {
 		err = -errno;
 		goto out;
+	} else {
+		entry_fd = -1;
 	}
 out:
+	if (lock_fd >= 0) {
+		inode_cache_unlock(&lock_fd);
+	}
 	free((void *)entry_name);
 	if (entry_fd >= 0) {
 		close(entry_fd);
@@ -207,12 +270,20 @@ out:
 
 int inode_cache_del(const struct inode_cache *cache, const char *path, uint16_t kind) {
 	int err = 0;
+	int lock_fd = -1;
 	char *entry_name= NULL;
 
 	err = hash_inode(&entry_name, path, kind);
 	if (err) {
 		goto out;
 	}
+
+	lock_fd = inode_cache_lock(cache->dirfd, entry_name, /* exclusive = */ 1);
+	if (lock_fd < 0) {
+		err = lock_fd;
+		goto out;
+	}
+
 	if (unlinkat(cache->dirfd, entry_name, 0) != 0) {
 		if (ENOENT == errno) {
 			err = 0;
@@ -222,6 +293,9 @@ int inode_cache_del(const struct inode_cache *cache, const char *path, uint16_t 
 		}
 	}
 out:
+	if (lock_fd >= 0) {
+		inode_cache_unlock(&lock_fd);
+	}
 	free(entry_name);
 	return err;
 }
