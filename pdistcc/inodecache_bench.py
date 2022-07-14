@@ -107,12 +107,9 @@ def bench_multiprocess(concurrency, repetitions):
 
 def main():
     cdir = os.path.expanduser('~/.cache/pdistcc/icache')
-    try:
-        shutil.rmtree(cdir)
-    except FileNotFoundError:
-        pass
     ic = InodeCache(cdir)
     gcc = '/usr/bin/gcc'
+    ic.purge(gcc, 1)
     assert ic.get(gcc, 1) is None
     ic.put(gcc, 1, b'test')
     assert ic.get(gcc, 1) == b'test'

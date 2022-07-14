@@ -50,3 +50,13 @@ class InodeCache:
                     return f.read()
         except FileNotFoundError:
             return None
+
+    def purge(self, path, kind):
+        digest = hash_inode(path, kind)
+        entry_path = self._path_by_hash(digest)
+        lock = self._rwlock(f"{entry_path}.lock")
+        try:
+            with lock.write_lock():
+                os.remove(entry_path)
+        except FileNotFoundError:
+            pass
