@@ -8,7 +8,9 @@
 #include <string.h>
 #include <inttypes.h>
 #include <time.h>
+#include <semaphore.h>
 #include <sys/types.h>
+#include <sys/mman.h>
 #include <sys/wait.h>
 #include "inodecache.h"
 #include "bench_stats.h"
@@ -64,7 +66,69 @@ int64_t timespec_delta_usec(const struct timespec *start, const struct timespec 
 	return delta;
 }
 
-int bench_inode_cache(const char *compiler, const char *triplet, int repetitions) {
+struct bench_result {
+	sem_t lock;
+	struct bench_stats stats;
+};
+
+int bench_result_map(struct bench_result **resultptr) {
+	int err = 0;
+	struct bench_result *result = MAP_FAILED;
+
+	if (!resultptr || *resultptr != NULL) {
+		err = -EINVAL;
+		goto out_err;
+	}
+
+	result = mmap(NULL,
+			sizeof(*result),
+			PROT_READ|PROT_WRITE,
+			MAP_SHARED|MAP_ANON,
+			-1, 0);
+	if (MAP_FAILED == result) {
+		err = -errno;
+		perror("mmap");
+		goto out_err;
+	}
+
+	bench_stats_reset(&result->stats);
+
+	if (sem_init(&result->lock, 1, 1) != 0) {
+		err = -errno;
+		perror("sem_init");
+		goto out_err;
+	}
+	*resultptr = result;
+	return 0;
+
+out_err:
+	if (result != MAP_FAILED) {
+		munmap(result, sizeof(*result));
+	}
+	return err;
+}
+
+int bench_result_unmap(struct bench_result **ptrptr) {
+	int err = 0;
+	struct bench_result *obj = NULL;
+	if (!ptrptr || !*ptrptr) {
+		return 0;
+	}
+	obj = *ptrptr;
+	if (MAP_FAILED == (void *)obj) {
+		*ptrptr = NULL;
+		return 0;
+	}
+	if (munmap((void *)obj, sizeof(*obj)) != 0) {
+		err = - errno;
+		perror("munmap");
+		return err;
+	}
+	*ptrptr = NULL;
+	return 0;
+}
+
+int bench_inode_cache(const char *compiler, const char *triplet, int repetitions, struct bench_result *result) {
 	int i;
 	int err = 0;
 	uint16_t entry_type = 1;
@@ -113,16 +177,27 @@ int bench_inode_cache(const char *compiler, const char *triplet, int repetitions
 		free(value);
 		value = NULL;
 	}
-out:
-	if (!err) {
-		printf("pid %d, count: %" PRId64 ", avg: %.1lf, max: %" PRId64 ", min: %" PRId64 " usec\n",
-			(int)getpid(),
-			bstat.count,
-			bstat.avg,
-			bstat.max,
-			bstat.min);
-		fflush(stdout);
+
+	printf("pid %d, count: %" PRId64 ", avg: %.1lf, max: %" PRId64 ", min: %" PRId64 " usec\n",
+		(int)getpid(),
+		bstat.count,
+		bstat.avg,
+		bstat.max,
+		bstat.min);
+	fflush(stdout);
+
+	if (sem_wait(&result->lock) < 0) {
+		err = errno;
+		perror("sem_wait");
+		goto out;
 	}
+	bench_stats_merge(&result->stats, &bstat);
+	if (sem_post(&result->lock) < 0) {
+		err = errno;
+		perror("sem_post");
+		goto out;
+	}
+out:
 	free(value);
 	inode_cache_close(&ic);
 	return err;
@@ -133,9 +208,15 @@ int run_bench(const char *compiler, const char *triplet, unsigned nproc, int rep
 	unsigned i = 0;
 	int wstatus = 0;
 	pid_t *children = NULL;
+	struct bench_result *result = NULL;
+
 	children = calloc(nproc, sizeof(pid_t));
 	if (!children) {
 		ret = ENOMEM;
+		goto out;
+	}
+	err = bench_result_map(&result);
+	if (err) {
 		goto out;
 	}
 
@@ -148,7 +229,7 @@ int run_bench(const char *compiler, const char *triplet, unsigned nproc, int rep
 		} else if (pid == 0) {
 			/* child */
 			int err;
-			err = bench_inode_cache(compiler, triplet, repetitions);
+			err = bench_inode_cache(compiler, triplet, repetitions, result);
 			exit(err < 0 ? -err : err);
 		} else {
 			children[i] = pid;
@@ -176,7 +257,15 @@ int run_bench(const char *compiler, const char *triplet, unsigned nproc, int rep
 				children[i], err);
 		}
 	}
+
+	printf("total: count: %" PRId64 ", avg: %.1lf, max: %" PRId64 ", min: %" PRId64 " usec\n",
+		result->stats.count,
+		result->stats.avg,
+		result->stats.max,
+		result->stats.min);
+	fflush(stdout);
 out:
+	bench_result_unmap(&result);
 	free(children);
 	return ret;
 }
