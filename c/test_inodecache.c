@@ -6,7 +6,12 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
+#include <time.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include "inodecache.h"
+#include "bench_stats.h"
 
 int get_gcc_triplet(const char *compiler, char **tripletptr) {
 	int err = 0;
@@ -50,6 +55,130 @@ out:
 	}
 	free(cmd);
 	return err;
+}
+
+int64_t timespec_delta_usec(const struct timespec *start, const struct timespec *end) {
+	int64_t delta;
+	delta = ((int64_t)(end->tv_sec - start->tv_sec))*1000000;
+	delta += (end->tv_nsec - start->tv_nsec)/1000;
+	return delta;
+}
+
+int bench_inode_cache(const char *compiler, const char *triplet, int repetitions) {
+	int i;
+	int err = 0;
+	uint16_t entry_type = 1;
+	char *value = NULL;
+	struct bench_stats bstat;
+	struct timespec start, end;
+	struct inode_cache ic = { .dir = "/home/asheplyakov/.cache/pdistcc/icache", .dirfd = -1 };
+
+	bench_stats_reset(&bstat);
+	err = inode_cache_open(&ic);
+	if (err) {
+		goto out;
+	}
+
+	err = inode_cache_put(&ic, compiler, entry_type, triplet);
+	if (err) {
+		printf("failed to store %s for %s: error %d (%s)\n",
+			triplet, compiler, err, strerror(-err));
+		goto out;
+	}
+
+	for (i = 0; i < repetitions; i++) {
+		if (clock_gettime(CLOCK_MONOTONIC, &start) < 0) {
+			err = -errno;
+			perror("clock_gettime");
+			goto out;
+		}
+		err = inode_cache_get(&ic, compiler, entry_type, &value);
+		if (err) {
+			printf("failed to read %s/%d from cache: %d (%s)\n",
+				compiler, (int)entry_type, err, strerror(-err));
+			goto out;
+		}
+		if (clock_gettime(CLOCK_MONOTONIC, &end) < 0) {
+			err = -errno;
+			perror("clock_gettime");
+			goto out;
+		}
+		bench_stats_update(&bstat, timespec_delta_usec(&start, &end));
+
+		if (strcmp(value, triplet) != 0) {
+			printf("wrong value %s, expected %s\n", value, triplet);
+			err = -EINVAL;
+			goto out;
+		}
+		free(value);
+		value = NULL;
+	}
+out:
+	if (!err) {
+		printf("pid %d, count: %" PRId64 ", avg: %.1lf, max: %" PRId64 ", min: %" PRId64 " usec\n",
+			(int)getpid(),
+			bstat.count,
+			bstat.avg,
+			bstat.max,
+			bstat.min);
+		fflush(stdout);
+	}
+	free(value);
+	inode_cache_close(&ic);
+	return err;
+}
+
+int run_bench(const char *compiler, const char *triplet, unsigned nproc, int repetitions) {
+	int ret = 0, err = 0;
+	unsigned i = 0;
+	int wstatus = 0;
+	pid_t *children = NULL;
+	children = calloc(nproc, sizeof(pid_t));
+	if (!children) {
+		ret = ENOMEM;
+		goto out;
+	}
+
+	for (i = 0; i < nproc; i++) {
+		pid_t pid = fork();
+		if (pid < 0) {
+			/* failed to start process */
+			perror("fork");
+			children[i] = pid;
+		} else if (pid == 0) {
+			/* child */
+			int err;
+			err = bench_inode_cache(compiler, triplet, repetitions);
+			exit(err < 0 ? -err : err);
+		} else {
+			children[i] = pid;
+		}
+	}
+	for (i = 0; i < nproc; i++) {
+		if (children[i] < 0) {
+			ret++;
+			continue;
+		}
+		if (waitpid(children[i], &wstatus, 0) < 0) {
+			perror("waitpid");
+			ret++;
+			continue;
+		}
+		if (!WIFEXITED(wstatus)) {
+			printf("child %d terminated abnormally\n", children[i]);
+			ret++;
+			continue;
+		}
+		err = WEXITSTATUS(wstatus);
+		if (err) {
+			ret++;
+			printf("child %d returned error code %d\n",
+				children[i], err);
+		}
+	}
+out:
+	free(children);
+	return ret;
 }
 
 int main(int argc, char **argv) {
@@ -123,7 +252,9 @@ int main(int argc, char **argv) {
 	}
 
 	printf("triplet of %s from inode cache: %s\n", compiler, value);
-
+	if (run_bench(compiler, triplet, 20, 500)) {
+		err = EXIT_FAILURE;
+	}
 out:
 	free(value);
 	inode_cache_close(&ic);

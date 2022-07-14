@@ -6,4 +6,4 @@ rule cc
     command = $CC -std=gnu89 $CFLAGS -o $out $in
 
 
-build test_inodecache: cc inodecache.c md5.c test_inodecache.c
+build test_inodecache: cc inodecache.c md5.c test_inodecache.c bench_stats.c
