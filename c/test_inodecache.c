@@ -12,52 +12,10 @@
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/wait.h>
+#include <ctype.h>
 #include "inodecache.h"
 #include "bench_stats.h"
-
-int get_gcc_triplet(const char *compiler, char **tripletptr) {
-	int err = 0;
-	char *cmd = NULL;
-	FILE *gccpipe = NULL;
-	size_t bufsz = 0;
-	ssize_t len = -1;
-	char *newlineptr = NULL;
-
-	if (!tripletptr) {
-		err = -EINVAL;
-		goto out;
-	}
-
-	if (asprintf(&cmd, "%s -dumpmachine", compiler) < 0) {
-		cmd = NULL;
-		err = -ENOMEM;
-		goto out;
-	}
-
-	gccpipe = popen(cmd, "r");
-	if (!gccpipe) {
-		err = errno ? -errno : -ENOMEM;
-		printf("%s: popen failed: %d (%s)\n", __func__, errno, strerror(errno));
-		goto out;
-	}
-
-	if ((len = getline(tripletptr, &bufsz, gccpipe)) < 0) {
-		err = -errno;
-		free(*tripletptr);
-		goto out;
-	}
-
-	newlineptr = strchr(*tripletptr, '\n');
-	if (newlineptr) {
-		*newlineptr = '\0';
-	}
-out:
-	if (gccpipe) {
-		pclose(gccpipe);
-	}
-	free(cmd);
-	return err;
-}
+#include "compiler_properties.h"
 
 int64_t timespec_delta_usec(const struct timespec *start, const struct timespec *end) {
 	int64_t delta;
@@ -278,6 +236,7 @@ int main(int argc, char **argv) {
 	const char* compiler = NULL;
 	struct inode_cache ic = { .dir = "/home/asheplyakov/.cache/pdistcc/icache", .dirfd = -1 };
 	char *triplet = NULL;
+	char *march_native = NULL;
 
 	if (argc != 3) {
 		printf("usage: test_inodecache /path/to/binary value\n");
@@ -320,6 +279,17 @@ int main(int argc, char **argv) {
 	}
 	printf("triplet of %s: %s\n", compiler, triplet);
 
+	if ((err = get_march_native(compiler, "march", &march_native)) != 0) {
+		printf("*** Failed to resolve -march=native: %d (%s)\n", err, strerror(-err));
+		goto out;
+	}
+	if (!march_native) {
+		err = EXIT_FAILURE;
+		printf("*** Failed to resolve -march=native: not enough info from compiler %s\n", compiler);
+		goto out;
+	}
+	printf("%s: '-march=native' resolves to '%s'\n", compiler, march_native);
+
 	if ((err = inode_cache_put(&ic, compiler, entry_type, triplet)) != 0) {
 		printf("*** Failed to put %s => %s to cache: %d (%s)\n",
 			compiler, triplet, err, strerror(err));
@@ -345,6 +315,8 @@ int main(int argc, char **argv) {
 		err = EXIT_FAILURE;
 	}
 out:
+	free(march_native);
+	free(triplet);
 	free(value);
 	inode_cache_close(&ic);
 	return err < 0 ? -err : err;
