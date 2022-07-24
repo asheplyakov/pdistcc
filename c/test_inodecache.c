@@ -188,6 +188,8 @@ int run_bench(const char *compiler, const char *triplet, unsigned nproc, int rep
 			/* child */
 			int err;
 			err = bench_inode_cache(compiler, triplet, repetitions, result);
+			free(children);
+			free((void *)triplet);
 			exit(err < 0 ? -err : err);
 		} else {
 			children[i] = pid;
@@ -311,6 +313,11 @@ int main(int argc, char **argv) {
 	}
 
 	printf("triplet of %s from inode cache: %s\n", compiler, value);
+	free(march_native);
+	march_native = NULL;
+	free(value);
+	value = NULL;
+
 	if (run_bench(compiler, triplet, 20, 500)) {
 		err = EXIT_FAILURE;
 	}
