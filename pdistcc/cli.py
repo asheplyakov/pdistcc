@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import logging
 import os
 import re
 
@@ -31,6 +32,13 @@ def _merge_settings_with_cli(settings, args):
     for k in settings.keys():
         cli_val = getattr(args, k) if hasattr(args, k) else None
         merged_settings[k] = cli_val or settings[k]
+    if hasattr(args, 'verbose'):
+        loglevel = 'WARN'
+        if args.verbose == 1:
+            loglevel = 'INFO'
+        elif args.verbose >= 2:
+            loglevel = 'DEBUG'
+        merged_settings['loglevel'] = loglevel
     return merged_settings
 
 
@@ -38,11 +46,15 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--host', dest='distcc_hosts',
                         nargs='*', help='where to compile')
+    parser.add_argument('-v', '--verbose', action='count', default=0,
+                        help='Verbose execution mode')
     parser.add_argument("compiler", nargs='*', help="compiler and arguments")
     args, unknown = parser.parse_known_args()
     args.compiler.extend(unknown)
 
     settings = _merge_settings_with_cli(client_settings(), args)
+    logging.basicConfig(level=settings['loglevel'],
+                        format='%(asctime)-15s %(message)s')
     distcc_hosts = [parse_distcc_host(h) for h in settings['distcc_hosts']]
     wrap_compiler(distcc_hosts, args.compiler, settings)
 

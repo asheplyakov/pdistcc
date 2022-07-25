@@ -29,7 +29,7 @@ def _server_settings():
 def _client_settings():
     return {
         'distcc_hosts': ['127.0.0.1:{}/10'.format(DISTCCD_PORT)],
-        'loglevel': 'DEBUG',
+        'loglevel': 'WARN',
     }
 
 
