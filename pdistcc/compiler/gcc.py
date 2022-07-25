@@ -1,19 +1,40 @@
 
+import logging
 import os
+import os.path
+import shutil
 import subprocess
 
 from .wrapper import CompilerWrapper
 from .errors import UnsupportedCompilationMode
+from ..inodecache import InodeCache
 
 LANG_C = 'c'
 LANG_CXX = 'c++'
 
 COMPILER_DIR = 'compiler_dir'
+INO_CACHE_TRIPLET = 1
+INO_CACHE_MARCH_NATIVE = 2
+
+logger = logging.getLogger(__name__)
 
 
 def gcc_resolve_triplet(gccpath):
     cmd = [gccpath, '-dumpmachine']
     return subprocess.check_output(cmd).strip()
+
+
+def gcc_march_native(gcc_abspath):
+    cmd = [gcc_abspath, '-march=native', '-Q', '--help=target']
+    out = subprocess.check_output(cmd, encoding='utf-8').strip()
+    for line in out.split('\n'):
+        if line.strip().startswith("-march="):
+            line = ''.join(line.split())
+            cpuname = line.split('-march=')[1]
+            break
+    if not cpuname:
+        raise UnsupportedCompilationMode("failed to resolve -march=native")
+    return cpuname
 
 
 class GCCWrapper(CompilerWrapper):
@@ -27,6 +48,8 @@ class GCCWrapper(CompilerWrapper):
         self._srcfile = None
         self._objfile = None
         self._preprocessed_file = None
+        cachedir = '~/.cache/pdistcc/icache'
+        self._ino_cache = InodeCache(cachedir=os.path.expanduser(cachedir))
         cfg = settings.get('gcc', {})
         if COMPILER_DIR in cfg:
             compiler = os.path.basename(self._compiler)
@@ -174,23 +197,31 @@ class GCCWrapper(CompilerWrapper):
         else:
             return False, False
 
-    def _resolve_march_native(self, flag='-march'):
-        cmd = [self._compiler, f'{flag}=native', '-Q', '--help=target']
-        out = subprocess.check_output(cmd, encoding='utf-8').strip()
-        for line in out.split('\n'):
-            if line.strip().startswith(f"{flag}="):
-                return ''.join(line.split())
-        raise RuntimeError(f"Failed to resolve {flag}=native")
+    def _compiler_abspath(self):
+        if os.path.isabs(self._compiler):
+            return self._compiler
+        else:
+            return shutil.which(self._compiler) or self._compiler
+
+    def _replace_march_native(self, flag='-march'):
+        gcc_abspath = self._compiler_abspath()
+        cpuname = self._ino_cache.get_str(gcc_abspath, INO_CACHE_MARCH_NATIVE)
+        if cpuname is None:
+            cpuname = gcc_march_native(gcc_abspath)
+            self._ino_cache.put_str(gcc_abspath, INO_CACHE_MARCH_NATIVE, cpuname)
+        else:
+            logger.debug("got cpuname '%s' from inode cache", cpuname)
+        return f"{flag}={cpuname}"
 
     def rewrite_local_args(self):
         new_args = []
         for arg in self._args:
             if arg == "-march=native" or arg == "-mcpu=native":
-                new_arg = self._resolve_march_native(flag="-march")
-                print(f"rewritten {arg} as {new_arg}")
-            elif arg == "-mtune":
-                new_arg = self._resolve_march_native(flag="-mtune")
-                print(f"rewritten {arg} as {new_arg}")
+                new_arg = self._replace_march_native(flag="-march")
+                logger.debug("rewritten '%s' as '%s'", arg, new_arg)
+            elif arg == "-mtune=native":
+                new_arg = self._replace_march_native(flag="-mtune")
+                logger.debug("rewritten '%s' as '%s'", arg, new_arg)
             else:
                 new_arg = arg
             new_args.append(new_arg)

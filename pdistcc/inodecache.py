@@ -60,3 +60,12 @@ class InodeCache:
                 os.remove(entry_path)
         except FileNotFoundError:
             pass
+
+    def get_str(self, path, kind):
+        val = self.get(path, kind)
+        if val is not None:
+            val = val.decode('utf-8')
+        return val
+
+    def put_str(self, path, kind, value):
+        self.put(path, kind, value.encode('utf-8'))
