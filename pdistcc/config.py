@@ -22,7 +22,7 @@ def _find_config(name):
 def _server_settings():
     return {
         'listen': '127.0.0.1:{}'.format(DISTCCD_PORT),
-        'loglevel': 'DEBUG',
+        'loglevel': 'WARN',
     }
 
 

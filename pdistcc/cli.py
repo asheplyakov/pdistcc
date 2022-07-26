@@ -63,6 +63,8 @@ def server_main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--host', help='IP to bind to')
     parser.add_argument('--port', type=int, help='port to listen at')
+    parser.add_argument('-v', '--verbose', action='count', default=0,
+                        help='Verbose execution mode')
     args = parser.parse_args()
     settings = _merge_settings_with_cli(server_settings(), args)
     daemon(settings,
