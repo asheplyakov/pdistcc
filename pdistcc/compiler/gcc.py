@@ -80,6 +80,8 @@ class GCCWrapper(CompilerWrapper):
                 continue
             if arg == '-c':
                 is_object_compilation = True
+            elif arg == '-S':
+                is_object_compilation = True
             elif arg == '-x':
                 skip_next_arg = True
                 continue
