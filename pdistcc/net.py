@@ -110,6 +110,9 @@ class FileOpsFactory(object):
     def close(self, f):
         f.close()
 
+    def remove(self, path):
+        os.remove(path)
+
 
 class DccClient(object):
     def __init__(self, conn,
