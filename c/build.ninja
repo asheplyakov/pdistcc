@@ -1,9 +1,10 @@
 
 CC = gcc
 CFLAGS = -O2 -flto -g -Wall -Werror -pipe
+LIBS = -lm
 
 rule cc
-    command = $CC -std=gnu89 $CFLAGS -o $out $in
+    command = $CC -std=gnu89 $CFLAGS -o $out $in $LIBS
 
 
 build test_inodecache: cc inodecache.c md5.c test_inodecache.c bench_stats.c compiler_properties.c

@@ -136,12 +136,14 @@ int bench_inode_cache(const char *compiler, const char *triplet, int repetitions
 		value = NULL;
 	}
 
-	printf("pid %d, count: %" PRId64 ", avg: %.1lf, max: %" PRId64 ", min: %" PRId64 " usec\n",
+	bench_stats_finalize(&bstat);
+	printf("pid %d, count: %" PRId64 ", avg: %.1lf, max: %" PRId64 ", min: %" PRId64 ", var: %1.lf usec\n",
 		(int)getpid(),
 		bstat.count,
 		bstat.avg,
 		bstat.max,
-		bstat.min);
+		bstat.min,
+		bstat.var);
 	fflush(stdout);
 
 	if (sem_wait(&result->lock) < 0) {
@@ -218,11 +220,12 @@ int run_bench(const char *compiler, const char *triplet, unsigned nproc, int rep
 		}
 	}
 
-	printf("total: count: %" PRId64 ", avg: %.1lf, max: %" PRId64 ", min: %" PRId64 " usec\n",
+	printf("total: count: %" PRId64 ", avg: %.1lf, max: %" PRId64 ", min: %" PRId64 ", var: %.1lf usec\n",
 		result->stats.count,
 		result->stats.avg,
 		result->stats.max,
-		result->stats.min);
+		result->stats.min,
+		result->stats.var);
 	fflush(stdout);
 out:
 	bench_result_unmap(&result);
