@@ -238,7 +238,7 @@ out:
 }
 
 static void print_help() {
-	printf("Usage: bench_inode_cache [-j concurrency] [-n repetitions] /path/to/gcc\n");
+	printf("Usage: bench_inode_cache [-j concurrency] [-n repetitions] [-c cachedir] /path/to/gcc\n");
 }
 
 #define DEFAULT_NPROC 10
@@ -246,20 +246,26 @@ static void print_help() {
 
 int main(int argc, char **argv) {
 	int err = 0, opt;
-	int nproc = 0;
-	unsigned repetitions = 0;
+	int nproc = 0, repetitions = 0;
 	const char* compiler = NULL;
 	char* triplet = NULL;
 
-	const char *cachedir = "/home/asheplyakov/.cache/pdistcc/icache";
+	const char *cachedir = NULL;
 
-	while ((opt = getopt(argc, argv, "hj:n:")) != -1) {
+	while ((opt = getopt(argc, argv, "hj:n:c:")) != -1) {
 		switch (opt) {
 			case 'n':
 				repetitions = (unsigned)atoi(optarg);
 				break;
 			case 'j':
 				nproc = atoi(optarg);
+				break;
+			case 'c':
+				cachedir = strdup(optarg);
+				if (!cachedir) {
+					printf("*** main: failed to allocate cachedir\n");
+					exit(EXIT_FAILURE);
+				}
 				break;
 			case 'h':
 				print_help();
@@ -285,6 +291,18 @@ int main(int argc, char **argv) {
 	}
 	printf("repetitions: %u, nproc: %d\n", repetitions, nproc);
 
+	if (!cachedir) {
+		const char *home = getenv("HOME");
+		if (!home) {
+			printf("*** Neither cachedir no HOME are defined\n");
+			exit(EXIT_FAILURE);
+		}
+		if (asprintf((char **)&cachedir, "%s/.cache", home) < 0) {
+			printf("*** main: cachedir: asprintf failed\n");
+			exit(EXIT_FAILURE);
+		}
+	}
+
 	if ((err = get_gcc_triplet(compiler, &triplet)) != 0) {
 		printf("*** Failed to figure out GCC triplet: %d (%s)\n", err, strerror(-err));
 		goto out;
@@ -293,6 +311,7 @@ int main(int argc, char **argv) {
 		err = EXIT_FAILURE;
 	}
 out:
+	free((void *)cachedir);
 	free(triplet);
 	return err < 0 ? -err : err;
 }
