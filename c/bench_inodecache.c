@@ -21,6 +21,7 @@
 struct bench_result {
 	sem_t lock;
 	struct bench_stats stats;
+	struct bench_stats nocache_stats;
 };
 
 int bench_result_map(struct bench_result **resultptr) {
@@ -101,11 +102,12 @@ int bench_inode_cache(int cachedirfd, const char *compiler, const char *triplet,
 	int err = 0;
 	uint16_t entry_type = 1;
 	char *value = NULL;
-	struct bench_stats bstat;
+	struct bench_stats bstat, nocache_stats;
 	struct timespec start, end;
 	struct inode_cache ic = { .dir = "none", .dirfd = cachedirfd };
 
 	bench_stats_reset(&bstat);
+	bench_stats_reset(&nocache_stats);
 	err = inode_cache_open(&ic);
 	if (err) {
 		printf("failed to open inode cache, error %d\n", err);
@@ -146,10 +148,44 @@ int bench_inode_cache(int cachedirfd, const char *compiler, const char *triplet,
 		free(value);
 		value = NULL;
 	}
-
 	bench_stats_finalize(&bstat);
-	printf("pid %d, ", (int)getpid());
+
+	for (i = 0; i < repetitions; i++) {
+		if (clock_gettime(CLOCK_MONOTONIC, &start) < 0) {
+			err = -errno;
+			perror("clock_gettime [3]");
+			goto out;
+		}
+		err = get_gcc_triplet(compiler, &value);
+		if (err) {
+			printf("failed to figure out %s triplet: %d (%s)\n",
+				compiler, err, strerror(err > 0 ? err : -err));
+			goto out;
+		}
+
+		if (clock_gettime(CLOCK_MONOTONIC, &end) < 0) {
+			err = -errno;
+			perror("clock_gettime [4]");
+			goto out;
+		}
+		bench_stats_update(&nocache_stats, timespec_delta_usec(&start, &end));
+
+		if (strcmp(triplet, value) != 0) {
+			printf("%s: wrong triplet '%s', expected '%s'\n",
+				__func__, value, triplet);
+			err = -EINVAL;
+			goto out;
+		}
+		free(value);
+		value = NULL;
+	}
+	bench_stats_finalize(&nocache_stats);
+
+	printf("pid %d: ", (int)getpid());
 	bench_stats_print(stdout, &bstat);
+	printf("\n");
+	printf("pid %d: NO CACHE ", (int)getpid());
+	bench_stats_print(stdout, &nocache_stats);
 	printf("\n");
 	fflush(stdout);
 
@@ -159,6 +195,7 @@ int bench_inode_cache(int cachedirfd, const char *compiler, const char *triplet,
 		goto out;
 	}
 	bench_stats_merge(&result->stats, &bstat);
+	bench_stats_merge(&result->nocache_stats, &nocache_stats);
 	if (sem_post(&result->lock) < 0) {
 		err = errno;
 		perror("sem_post");
@@ -230,6 +267,9 @@ int run_bench(int cachedirfd, const char *compiler, const char *triplet, unsigne
 
 	printf("total: ");
 	bench_stats_print(stdout, &result->stats);
+	printf("\n");
+	printf("NO CACHE: total: ");
+	bench_stats_print(stdout, &result->nocache_stats);
 	printf("\n");
 	fflush(stdout);
 out:
