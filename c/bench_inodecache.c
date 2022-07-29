@@ -313,6 +313,10 @@ int main(int argc, char **argv) {
 		printf("*** Failed to figure out GCC triplet: %d (%s)\n", err, strerror(-err));
 		goto out;
 	}
+	/* make valgrind happy */
+	free((void *)cachedir);
+	cachedir = NULL;
+
 	if (run_bench(cachedirfd, compiler, triplet, (unsigned)nproc, repetitions)) {
 		err = EXIT_FAILURE;
 	}
