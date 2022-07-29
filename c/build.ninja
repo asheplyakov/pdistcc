@@ -9,4 +9,4 @@ rule cc
 
 build test_inodecache: cc inodecache.c md5.c test_inodecache.c bench_stats.c compiler_properties.c
 
-build bench_inodecache: cc inodecache.c md5.c compiler_properties.c bench_stats.c bench_inodecache.c
+build bench_inodecache: cc inodecache.c md5.c compiler_properties.c bench_stats.c bench_inodecache.c mkdir_p.c

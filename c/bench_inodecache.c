@@ -16,6 +16,7 @@
 #include "inodecache.h"
 #include "bench_stats.h"
 #include "compiler_properties.h"
+#include "mkdir_p.h"
 
 struct bench_result {
 	sem_t lock;
@@ -95,14 +96,14 @@ static void bench_stats_print(FILE *f, const struct bench_stats *bstat) {
 		bstat->var);
 }
 
-int bench_inode_cache(const char *cachedir, const char *compiler, const char *triplet, int repetitions, struct bench_result *result) {
+int bench_inode_cache(int cachedirfd, const char *compiler, const char *triplet, int repetitions, struct bench_result *result) {
 	int i;
 	int err = 0;
 	uint16_t entry_type = 1;
 	char *value = NULL;
 	struct bench_stats bstat;
 	struct timespec start, end;
-	struct inode_cache ic = { .dir = cachedir, .dirfd = -1 };
+	struct inode_cache ic = { .dir = "none", .dirfd = cachedirfd };
 
 	bench_stats_reset(&bstat);
 	err = inode_cache_open(&ic);
@@ -170,7 +171,7 @@ out:
 }
 
 
-int run_bench(const char *cachedir, const char *compiler, const char *triplet, unsigned nproc, int repetitions) {
+int run_bench(int cachedirfd, const char *compiler, const char *triplet, unsigned nproc, int repetitions) {
 	int ret = 0, err = 0;
 	unsigned i = 0;
 	int wstatus = 0;
@@ -196,7 +197,7 @@ int run_bench(const char *cachedir, const char *compiler, const char *triplet, u
 		} else if (pid == 0) {
 			/* child */
 			int err;
-			err = bench_inode_cache(cachedir, compiler, triplet, repetitions, result);
+			err = bench_inode_cache(cachedirfd, compiler, triplet, repetitions, result);
 			free(children);
 			free((void *)triplet);
 			exit(err < 0 ? -err : err);
@@ -245,7 +246,7 @@ static void print_help() {
 #define DEFAULT_REPETITIONS 500
 
 int main(int argc, char **argv) {
-	int err = 0, opt;
+	int err = 0, opt, cachedirfd = -1;
 	int nproc = 0, repetitions = 0;
 	const char* compiler = NULL;
 	char* triplet = NULL;
@@ -302,15 +303,23 @@ int main(int argc, char **argv) {
 			exit(EXIT_FAILURE);
 		}
 	}
+	if ((cachedirfd = mkdir_p((char *)cachedir, 0755)) < 0) {
+		err = - cachedirfd;
+		printf("failed to open cachedir \"%s\": %d (%s)\n", cachedir, err, strerror(err));
+		goto out;
+	}
 
 	if ((err = get_gcc_triplet(compiler, &triplet)) != 0) {
 		printf("*** Failed to figure out GCC triplet: %d (%s)\n", err, strerror(-err));
 		goto out;
 	}
-	if (run_bench(cachedir, compiler, triplet, (unsigned)nproc, repetitions)) {
+	if (run_bench(cachedirfd, compiler, triplet, (unsigned)nproc, repetitions)) {
 		err = EXIT_FAILURE;
 	}
 out:
+	if (cachedirfd >= 0) {
+		close(cachedirfd);
+	}
 	free((void *)cachedir);
 	free(triplet);
 	return err < 0 ? -err : err;
