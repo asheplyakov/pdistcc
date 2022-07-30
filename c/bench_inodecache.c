@@ -100,7 +100,6 @@ static void bench_stats_print(FILE *f, const struct bench_stats *bstat) {
 int bench_inode_cache(int cachedirfd, const char *compiler, const char *triplet, int repetitions, struct bench_result *result) {
 	int i;
 	int err = 0;
-	uint16_t entry_type = 1;
 	char *value = NULL;
 	struct bench_stats bstat, nocache_stats;
 	struct timespec start, end;
@@ -114,23 +113,16 @@ int bench_inode_cache(int cachedirfd, const char *compiler, const char *triplet,
 		goto out;
 	}
 
-	err = inode_cache_put(&ic, compiler, entry_type, triplet);
-	if (err) {
-		printf("failed to store %s for %s: error %d (%s)\n",
-			triplet, compiler, err, strerror(-err));
-		goto out;
-	}
-
 	for (i = 0; i < repetitions; i++) {
 		if (clock_gettime(CLOCK_MONOTONIC, &start) < 0) {
 			err = -errno;
 			perror("clock_gettime");
 			goto out;
 		}
-		err = inode_cache_get(&ic, compiler, entry_type, &value);
+		err = inode_cache_get(&ic, compiler, (uint16_t)GCC_TRIPLET, &value);
 		if (err) {
 			printf("failed to read %s/%d from cache: %d (%s)\n",
-				compiler, (int)entry_type, err, strerror(-err));
+				compiler, GCC_TRIPLET, err, strerror(-err));
 			goto out;
 		}
 		if (clock_gettime(CLOCK_MONOTONIC, &end) < 0) {
@@ -214,6 +206,7 @@ int run_bench(int cachedirfd, const char *compiler, const char *triplet, unsigne
 	int wstatus = 0;
 	pid_t *children = NULL;
 	struct bench_result *result = NULL;
+	struct inode_cache ic = { .dir = NULL, .dirfd = cachedirfd };
 
 	children = calloc(nproc, sizeof(pid_t));
 	if (!children) {
@@ -222,6 +215,18 @@ int run_bench(int cachedirfd, const char *compiler, const char *triplet, unsigne
 	}
 	err = bench_result_map(&result);
 	if (err) {
+		goto out;
+	}
+
+	err = inode_cache_open(&ic);
+	if (err) {
+		printf("%s: failed to open inode cache, error %d\n", __func__, err);
+		goto out;
+	}
+	err = inode_cache_put(&ic, compiler, (uint16_t)GCC_TRIPLET, triplet);
+	if (err) {
+		printf("%s: failed to store %s for %s: error %d (%s)\n",
+			__func__, triplet, compiler, err, strerror(-err));
 		goto out;
 	}
 
@@ -275,6 +280,7 @@ int run_bench(int cachedirfd, const char *compiler, const char *triplet, unsigne
 out:
 	bench_result_unmap(&result);
 	free(children);
+	inode_cache_close(&ic);
 	return ret;
 }
 

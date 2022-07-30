@@ -27,5 +27,10 @@ extern int get_gcc_triplet(const char *compiler, char **valueptr);
  */
 extern int get_march_native(const char *compiler, const char *opt, char **valueptr);
 
+enum GCC_PROPERTIES {
+	GCC_TRIPLET = 1,
+	GCC_MARCH_NATIVE = 2,
+};
+
 #endif
 
