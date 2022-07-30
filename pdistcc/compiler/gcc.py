@@ -48,8 +48,7 @@ class GCCWrapper(CompilerWrapper):
         self._srcfile = None
         self._objfile = None
         self._preprocessed_file = None
-        cachedir = '~/.cache/pdistcc/icache'
-        self._ino_cache = InodeCache(cachedir=os.path.expanduser(cachedir))
+        self._cachedir = os.path.expanduser('~/.cache/pdistcc/icache')
         cfg = settings.get('gcc', {})
         if COMPILER_DIR in cfg:
             compiler = os.path.basename(self._compiler)
@@ -207,10 +206,11 @@ class GCCWrapper(CompilerWrapper):
 
     def _replace_march_native(self, flag='-march'):
         gcc_abspath = self._compiler_abspath()
-        cpuname = self._ino_cache.get_str(gcc_abspath, INO_CACHE_MARCH_NATIVE)
+        ino_cache = InodeCache(self._cachedir)
+        cpuname = ino_cache.get_str(gcc_abspath, INO_CACHE_MARCH_NATIVE)
         if cpuname is None:
             cpuname = gcc_march_native(gcc_abspath)
-            self._ino_cache.put_str(gcc_abspath, INO_CACHE_MARCH_NATIVE, cpuname)
+            ino_cache.put_str(gcc_abspath, INO_CACHE_MARCH_NATIVE, cpuname)
         else:
             logger.debug("got cpuname '%s' from inode cache", cpuname)
         return f"{flag}={cpuname}"
