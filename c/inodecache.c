@@ -125,7 +125,11 @@ int inode_cache_lock(int dirfd, const char *entry_name, int exclusive) {
 		fd = -ENOMEM;
 		goto out;
 	}
-	fd = openat(dirfd, lock_name, O_WRONLY|O_TRUNC|O_CREAT, 0666);
+	if (exclusive) {
+		fd = openat(dirfd, lock_name, O_WRONLY|O_TRUNC|O_CREAT, 0666);
+	} else {
+		fd = openat(dirfd, lock_name, O_RDONLY);
+	}
 	if (fd < 0) {
 		err = -errno;
 		goto out;
