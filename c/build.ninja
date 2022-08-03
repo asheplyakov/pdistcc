@@ -29,7 +29,6 @@ build bench_stats.o: cc bench_stats.c
 build test_inodecache.o: cc test_inodecache.c
 build bench_inodecache.o: cc bench_inodecache.c
 
-default bench_inodecache test_inodecache
 
 build always: phony
 
@@ -40,3 +39,11 @@ build valgrind: phony bench_inodecache.vglog
 
 build bench: run bench_inodecache | always
     args = -c ./.inocache /usr/bin/gcc
+
+build barrier_test: link barrier_test.o barrier.o
+build barrier_interproc_test: link barrier_interproc_test.o barrier.o
+build barrier.o: cc barrier.c
+build barrier_test.o: cc barrier_test.c
+build barrier_interproc_test.o: cc barrier_interproc_test.c
+
+default bench_inodecache test_inodecache barrier_test barrier_interproc_test
