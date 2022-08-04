@@ -143,5 +143,9 @@ def daemon(settings, host='127.0.0.1', port=3632):
     socketserver.TCPServer.allow_reuse_address = True
     socketserver.TCPServer.request_queue_size = multiprocessing.cpu_count() + 1
     logger.info("listening at %s:%s", host, port)
-    with socketserver.ThreadingTCPServer((host, port), distccd_factory) as server:
+    if hasattr(socketserver, 'ForkingTCPServer'):
+        Server = socketserver.ForkingTCPServer
+    else:
+        Server = socketserver.ThreadingTCPServer
+    with Server((host, port), distccd_factory) as server:
         server.serve_forever()
