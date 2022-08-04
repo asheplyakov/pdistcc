@@ -21,5 +21,5 @@ def test_distcc_host_cmdline(mocker):
     client_main()
     pdistcc.cli.wrap_compiler.assert_called_once_with(dcc_hosts,
         'gcc -c foo.c'.split(),
-        {'distcc_hosts': 'a:1111/1 b:2222/2'.split()}
+        {'distcc_hosts': 'a:1111/1 b:2222/2'.split(), 'loglevel': 'WARN'}
     )
