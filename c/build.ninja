@@ -18,7 +18,7 @@ rule valgrind
 
 build test_inodecache: link test_inodecache.o inodecache.o md5.o compiler_properties.o
 
-build bench_inodecache: link bench_inodecache.o  bench_stats.o inodecache.o md5.o compiler_properties.o mkdir_p.o
+build bench_inodecache: link bench_inodecache.o  bench_stats.o inodecache.o md5.o compiler_properties.o mkdir_p.o barrier.o
     libs = -lm
 
 build md5.o: cc md5.c

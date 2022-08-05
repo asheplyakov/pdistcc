@@ -17,11 +17,13 @@
 #include "bench_stats.h"
 #include "compiler_properties.h"
 #include "mkdir_p.h"
+#include "barrier.h"
 
 struct bench_result {
 	sem_t lock;
 	struct bench_stats stats;
 	struct bench_stats nocache_stats;
+	struct barrier second_phase_barrier;
 	int lock_initialized;
 };
 
@@ -41,13 +43,14 @@ void bench_result_unmap(struct bench_result **ptrptr) {
 		}
 		obj->lock_initialized = 0;
 	}
+	barrier_close(&obj->second_phase_barrier);
 	if (munmap((void *)obj, sizeof(*obj)) != 0) {
 		perror("bench_result_unmap: munmap");
 	}
 	*ptrptr = NULL;
 }
 
-int bench_result_map(struct bench_result **resultptr) {
+int bench_result_map(struct bench_result **resultptr, int nproc) {
 	int err = 0;
 	struct bench_result *result = MAP_FAILED;
 
@@ -70,6 +73,13 @@ int bench_result_map(struct bench_result **resultptr) {
 	memset(result, 0, sizeof(*result));
 	bench_stats_reset(&result->stats);
 	bench_stats_reset(&result->nocache_stats);
+
+	err = barrier_init(&result->second_phase_barrier, nproc, 1);
+	if (err) {
+		printf("%s: failed to initialize 2nd stage barrier: %d (%s)\n",
+			__func__, err, strerror(errno));
+		goto out_err;
+	}
 
 	if (sem_init(&result->lock, 1, 1) != 0) {
 		err = -errno;
@@ -147,6 +157,13 @@ int bench_inode_cache(int cachedirfd, const char *compiler, const char *triplet,
 	}
 	bench_stats_finalize(&bstat);
 
+	err = barrier_wait(&result->second_phase_barrier);
+	if (err) {
+		printf("%s: failed to wait for 2nd stage barrier: %d (%s)\n",
+			__func__, err, strerror(err));
+		goto out;
+	}
+
 	for (i = 0; i < repetitions; i++) {
 		if (clock_gettime(CLOCK_MONOTONIC, &start) < 0) {
 			err = -errno;
@@ -218,7 +235,7 @@ int run_bench(int cachedirfd, const char *compiler, const char *triplet, unsigne
 		ret = ENOMEM;
 		goto out;
 	}
-	err = bench_result_map(&result);
+	err = bench_result_map(&result, nproc);
 	if (err) {
 		goto out;
 	}
