@@ -3,6 +3,7 @@ import copy
 import json
 import logging
 import os
+import re
 
 
 DISTCCD_PORT = 3632
@@ -77,3 +78,31 @@ def client_settings():
     if 'DISTCC_HOSTS' in os.environ:
         settings['distcc_hosts'] = os.environ['DISTCC_HOSTS'].split()
     return settings
+
+
+def merge_settings_with_cli(settings, args):
+    merged_settings = {}
+    for k in settings.keys():
+        cli_val = getattr(args, k) if hasattr(args, k) else None
+        merged_settings[k] = cli_val or settings[k]
+    if hasattr(args, 'verbose'):
+        loglevel = 'WARN'
+        if args.verbose == 1:
+            loglevel = 'INFO'
+        elif args.verbose >= 2:
+            loglevel = 'DEBUG'
+        merged_settings['loglevel'] = loglevel
+    return merged_settings
+
+
+def parse_distcc_host(h):
+    rx = re.compile('^([^:/]+):([0-9]+)/([0-9]+)')
+    m = rx.match(h)
+    if m is None:
+        raise ValueError('invalid host spec: %s' % h)
+    host, port, weight = m.groups()
+    return {
+        'host': host,
+        'port': int(port),
+        'weight': int(weight),
+    }
