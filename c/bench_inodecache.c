@@ -22,7 +22,30 @@ struct bench_result {
 	sem_t lock;
 	struct bench_stats stats;
 	struct bench_stats nocache_stats;
+	int lock_initialized;
 };
+
+void bench_result_unmap(struct bench_result **ptrptr) {
+	struct bench_result *obj = NULL;
+	if (!ptrptr || !*ptrptr) {
+		return;
+	}
+	obj = *ptrptr;
+	if (MAP_FAILED == (void *)obj) {
+		*ptrptr = NULL;
+		return;
+	}
+	if (obj->lock_initialized) {
+		if (sem_destroy(&obj->lock)) {
+			perror("bench_result_unmap: sem_destroy");
+		}
+		obj->lock_initialized = 0;
+	}
+	if (munmap((void *)obj, sizeof(*obj)) != 0) {
+		perror("bench_result_unmap: munmap");
+	}
+	*ptrptr = NULL;
+}
 
 int bench_result_map(struct bench_result **resultptr) {
 	int err = 0;
@@ -44,41 +67,23 @@ int bench_result_map(struct bench_result **resultptr) {
 		goto out_err;
 	}
 
+	memset(result, 0, sizeof(*result));
 	bench_stats_reset(&result->stats);
+	bench_stats_reset(&result->nocache_stats);
 
 	if (sem_init(&result->lock, 1, 1) != 0) {
 		err = -errno;
 		perror("sem_init");
 		goto out_err;
 	}
+	result->lock_initialized = 1;
+
 	*resultptr = result;
 	return 0;
 
 out_err:
-	if (result != MAP_FAILED) {
-		munmap(result, sizeof(*result));
-	}
+	bench_result_unmap(&result);
 	return err;
-}
-
-int bench_result_unmap(struct bench_result **ptrptr) {
-	int err = 0;
-	struct bench_result *obj = NULL;
-	if (!ptrptr || !*ptrptr) {
-		return 0;
-	}
-	obj = *ptrptr;
-	if (MAP_FAILED == (void *)obj) {
-		*ptrptr = NULL;
-		return 0;
-	}
-	if (munmap((void *)obj, sizeof(*obj)) != 0) {
-		err = - errno;
-		perror("munmap");
-		return err;
-	}
-	*ptrptr = NULL;
-	return 0;
 }
 
 int64_t timespec_delta_usec(const struct timespec *start, const struct timespec *end) {
