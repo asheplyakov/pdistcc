@@ -44,7 +44,7 @@ class Distccd(socketserver.BaseRequestHandler):
             if argv != b'ARGV':
                 raise InvalidToken("expected ARGV, got {}", to_string(argv))
             compiler_cmd.append(to_string(arg))
-        logger.debug('orig compiler cmd: %s', ' '.join(compiler_cmd))
+        logger.debug('%s: orig compiler cmd: %s', self.client_address, ' '.join(compiler_cmd))
         return compiler_cmd
 
     def _read_request(self):
@@ -62,14 +62,14 @@ class Distccd(socketserver.BaseRequestHandler):
         name, doti_bytes, _ = read_field(self.request, False)
         if name != b'DOTI':
             raise InvalidToken("expected DOTI, got {}", to_string(name))
-        logger.debug('reading doti file')
+        logger.debug('%s: reading doti file', self.client_address)
         with self._tempfile(suffix='.ii', delete=False) as doti:
             path = doti.name
             chunked_read_write(self.request, doti.file, doti_bytes)
             doti.flush()
-        logger.debug('successfully read %s bytes', doti_bytes)
         self._perf.recv_time = (time.perf_counter() - start_time)*1000
         self._perf.recv_size = doti_bytes
+        logger.debug('%s: successfully read %s bytes', self.client_address, doti_bytes)
         return path
 
     def _compile(self, wrapper, cleanup_files):
@@ -83,7 +83,7 @@ class Distccd(socketserver.BaseRequestHandler):
         cleanup_files.append(objfile)
 
         compiler_cmd = wrapper.compiler_cmd()
-        logger.debug('running compiler: %s', str(compiler_cmd))
+        logger.debug('%s: running compiler: %s', self.client_address, str(compiler_cmd))
         start_time = time.perf_counter()
         compiler = self._Popen(compiler_cmd,
                                stdout=subprocess.PIPE,
@@ -91,11 +91,11 @@ class Distccd(socketserver.BaseRequestHandler):
         stdout, stderr = compiler.communicate()
         self._perf.compile_time = (time.perf_counter() - start_time)*1000
         ret = compiler.returncode
-        logger.debug('compiler returned: %s', ret)
+        logger.debug('%s: compiler returned: %s', self.client_address, ret)
         return ret, stdout, stderr, objfile
 
     def _reply(self, ret, stdout, stderr, objfile):
-        logging.debug('sending reply')
+        logging.debug('%s: sending reply', self.client_address)
         start_time = time.perf_counter()
         buf = dcc_encode('DONE', DCC_PROTOCOL)
         buf += dcc_encode('STAT', ret)
@@ -109,17 +109,16 @@ class Distccd(socketserver.BaseRequestHandler):
             with self._fileops.open(objfile, 'rb') as doto:
                 doto_len = self._fileops.size(doto)
                 self.request.sendall(dcc_encode('DOTO', doto_len))
-                logger.debug('sending object file %s', objfile)
+                logger.debug('%s: sending object file %s', self.client_address, objfile)
                 chunked_send(self.request, doto, doto_len)
-                logger.debug('successfully sent %s bytes', doto_len)
                 self._perf.send_time = (time.perf_counter() - start_time)*1000
                 self._perf.send_size = doto_len
+                logger.debug('%s: successfully sent %s bytes', self.client_address, doto_len)
         except FileNotFoundError:
             if ret != 0:
                 self.request.sendall(dcc_encode('DOTO', 0))
             else:
                 raise RuntimeError("compiler failed to produce '%s' file" % objfile)
-
 
     def handle(self):
         if 'delayed_handle' in self._settings:
