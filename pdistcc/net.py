@@ -67,14 +67,24 @@ def read_token(sock, expected=None):
     return name, size
 
 
-def chunked_read_write(sock, fobj, size, chunk_size=4096):
+def chunked_read_write(sock, fobj, size, chunk_size=256*1024):
     remaining = size
-    while remaining > 0:
-        chunk = sock.recv(chunk_size if remaining > chunk_size else remaining)
-        if len(chunk) == 0:
-            raise ProtocolError('peer disconnected')
-        fobj.write(chunk)
-        remaining -= len(chunk)
+    recv_into = sock.recv_into
+    fobj_write = fobj.write
+    buflen = chunk_size
+    with memoryview(bytearray(buflen)) as mv:
+        while remaining > 0:
+            if chunk_size > remaining:
+                chunk_size = remaining
+            n = recv_into(mv, chunk_size)
+            if n == 0:
+                raise ProtocolError('peer disconnected')
+            elif n < buflen:
+                with mv[:n] as smv:
+                    fobj.write(smv)
+            else:
+                fobj_write(mv)
+            remaining -= n
 
 
 def chunked_send(sock, fobj, size, chunk_size=4096):

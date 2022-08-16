@@ -53,6 +53,14 @@ class FakeSocket(io.BytesIO):
     def recv(self, size):
         return self.read(size)
 
+    def recv_into(self, buf, size=0):
+        if size == 0:
+            return self.readinto(buf)
+        else:
+            with memoryview(buf) as mv:
+                with mv[:size] as submv:
+                    return self.readinto(submv)
+
 
 def test_dcc_encode():
     size = 31

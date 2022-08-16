@@ -15,6 +15,14 @@ class FakeSocket(object):
     def recv(self, size):
         return self._read.read(size)
 
+    def recv_into(self, buf, size=0):
+        if size == 0:
+            return self._read.readinto(buf)
+        else:
+            with memoryview(buf) as mv:
+                with mv[:size] as submv:
+                    return self._read.readinto(submv)
+
     def sendall(self, data):
         sent = 0
         while sent < len(data):
